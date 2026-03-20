@@ -1,0 +1,117 @@
+{
+  "name": "xero-cli",
+  "version": "0.0.1",
+  "description": "CLI tool for Xero API access via PKCE OAuth",
+  "license": "MIT",
+  "author": "Regan Ashworth",
+  "keywords": [
+    "xero",
+    "cli",
+    "accounting",
+    "oauth",
+    "pkce",
+    "api"
+  ],
+  "type": "module",
+  "bin": {
+    "xero": "./bin/run.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "/bin",
+    "/dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "node --loader ts-node/esm bin/dev.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "postpack": "rm -f oclif.manifest.json",
+    "prepack": "tsc -b && oclif manifest"
+  },
+  "oclif": {
+    "bin": "xero",
+    "dirname": "xero-cli",
+    "commands": "./dist/commands",
+    "topicSeparator": " ",
+    "topics": {
+      "profile": {
+        "description": "Manage Xero connection profiles"
+      },
+      "contacts": {
+        "description": "Manage Xero contacts"
+      },
+      "contact-groups": {
+        "description": "Manage Xero contact groups"
+      },
+      "accounts": {
+        "description": "List Xero accounts"
+      },
+      "invoices": {
+        "description": "Manage Xero invoices"
+      },
+      "quotes": {
+        "description": "Manage Xero quotes"
+      },
+      "credit-notes": {
+        "description": "Manage Xero credit notes"
+      },
+      "journals": {
+        "description": "Manage manual journals"
+      },
+      "bank-transactions": {
+        "description": "Manage bank transactions"
+      },
+      "payments": {
+        "description": "Manage payments"
+      },
+      "items": {
+        "description": "Manage Xero items"
+      },
+      "tax-rates": {
+        "description": "List tax rates"
+      },
+      "reports": {
+        "description": "Generate Xero reports"
+      },
+      "tracking": {
+        "description": "Manage tracking categories and options"
+      },
+      "tracking:categories": {
+        "description": "Manage tracking categories"
+      },
+      "tracking:options": {
+        "description": "Manage tracking options"
+      },
+      "org": {
+        "description": "View organisation details"
+      }
+    },
+    "plugins": [
+      "@oclif/plugin-help"
+    ]
+  },
+  "dependencies": {
+    "@inquirer/prompts": "^7",
+    "@napi-rs/keyring": "^1.2.0",
+    "@oclif/core": "^4",
+    "@oclif/plugin-help": "^6",
+    "chalk": "^5",
+    "cli-table3": "^0.6",
+    "open": "^11.0.0",
+    "xero-node": "^13",
+    "zod": "^3"
+  },
+  "devDependencies": {
+    "@oclif/test": "^4",
+    "@types/node": "^20",
+    "oclif": "^4",
+    "ts-node": "^10",
+    "typescript": "^5",
+    "vitest": "^2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
