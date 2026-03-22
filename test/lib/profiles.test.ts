@@ -15,7 +15,7 @@ vi.mock('node:os', async () => {
 })
 
 // Dynamic import after mocks are set up
-const {addProfile, removeProfile, listProfiles, setDefaultProfile, getDefaultProfile, getProfileCredentials, profileExists} = await import('../../src/lib/profiles.js')
+const {addProfile, removeProfile, listProfiles, setDefaultProfile, getDefaultProfile, getProfileClientId, profileExists} = await import('../../src/lib/profiles.js')
 
 describe('profiles', () => {
   beforeEach(() => {
@@ -27,8 +27,8 @@ describe('profiles', () => {
   })
 
   describe('addProfile', () => {
-    it('creates a new profile', async () => {
-      await addProfile('test-profile', 'client-id-123', 'client-secret-456')
+    it('creates a new profile', () => {
+      addProfile('test-profile', 'client-id-123')
 
       const configPath = join(TEST_DIR, '.config', 'xero-cli', 'config.json')
       expect(existsSync(configPath)).toBe(true)
@@ -38,14 +38,14 @@ describe('profiles', () => {
       expect(config.profiles['test-profile'].clientId).toBe('client-id-123')
     })
 
-    it('sets first profile as default', async () => {
-      await addProfile('first-profile', 'id-1', 'secret-1')
+    it('sets first profile as default', () => {
+      addProfile('first-profile', 'id-1')
       expect(getDefaultProfile()).toBe('first-profile')
     })
 
-    it('does not change default when adding more profiles', async () => {
-      await addProfile('first', 'id-1', 'secret-1')
-      await addProfile('second', 'id-2', 'secret-2')
+    it('does not change default when adding more profiles', () => {
+      addProfile('first', 'id-1')
+      addProfile('second', 'id-2')
       expect(getDefaultProfile()).toBe('first')
     })
   })
@@ -56,9 +56,9 @@ describe('profiles', () => {
       expect(profiles).toHaveLength(0)
     })
 
-    it('returns all profiles', async () => {
-      await addProfile('alpha', 'id-a', 'secret-a')
-      await addProfile('beta', 'id-b', 'secret-b')
+    it('returns all profiles', () => {
+      addProfile('alpha', 'id-a')
+      addProfile('beta', 'id-b')
 
       const {profiles, defaultProfile} = listProfiles()
       expect(profiles).toHaveLength(2)
@@ -67,27 +67,27 @@ describe('profiles', () => {
   })
 
   describe('removeProfile', () => {
-    it('removes a profile', async () => {
-      await addProfile('to-remove', 'id-1', 'secret-1')
+    it('removes a profile', () => {
+      addProfile('to-remove', 'id-1')
       expect(profileExists('to-remove')).toBe(true)
 
-      await removeProfile('to-remove')
+      removeProfile('to-remove')
       expect(profileExists('to-remove')).toBe(false)
     })
 
-    it('updates default when removing default profile', async () => {
-      await addProfile('first', 'id-1', 'secret-1')
-      await addProfile('second', 'id-2', 'secret-2')
+    it('updates default when removing default profile', () => {
+      addProfile('first', 'id-1')
+      addProfile('second', 'id-2')
 
-      await removeProfile('first')
+      removeProfile('first')
       expect(getDefaultProfile()).toBe('second')
     })
   })
 
   describe('setDefaultProfile', () => {
-    it('sets the default profile', async () => {
-      await addProfile('alpha', 'id-a', 'secret-a')
-      await addProfile('beta', 'id-b', 'secret-b')
+    it('sets the default profile', () => {
+      addProfile('alpha', 'id-a')
+      addProfile('beta', 'id-b')
 
       setDefaultProfile('beta')
       expect(getDefaultProfile()).toBe('beta')
@@ -98,17 +98,14 @@ describe('profiles', () => {
     })
   })
 
-  describe('getProfileCredentials', () => {
-    it('returns credentials from file fallback', async () => {
-      await addProfile('test', 'my-client-id', 'my-client-secret')
-
-      const creds = await getProfileCredentials('test')
-      expect(creds.clientId).toBe('my-client-id')
-      expect(creds.clientSecret).toBe('my-client-secret')
+  describe('getProfileClientId', () => {
+    it('returns client ID for existing profile', () => {
+      addProfile('test', 'my-client-id')
+      expect(getProfileClientId('test')).toBe('my-client-id')
     })
 
-    it('throws for non-existent profile', async () => {
-      await expect(getProfileCredentials('missing')).rejects.toThrow()
+    it('throws for non-existent profile', () => {
+      expect(() => getProfileClientId('missing')).toThrow()
     })
   })
 
@@ -117,8 +114,8 @@ describe('profiles', () => {
       expect(profileExists('missing')).toBe(false)
     })
 
-    it('returns true for existing profile', async () => {
-      await addProfile('existing', 'id', 'secret')
+    it('returns true for existing profile', () => {
+      addProfile('existing', 'id')
       expect(profileExists('existing')).toBe(true)
     })
   })
