@@ -68,6 +68,16 @@ Every command that calls the Xero API supports:
 
 Environment variables `XERO_PROFILE` and `XERO_CLIENT_ID` are also supported.
 
+## Finding IDs
+
+Most commands that reference contacts, invoices, or accounts require a Xero GUID (e.g., `edc74793-8d7e-4bf2-9e63-146dc4c675a2`). Use the list commands to find IDs:
+
+```bash
+xero contacts list --search "Acme"   # find a contact ID
+xero accounts list                    # find account codes
+xero invoices list                    # find invoice IDs
+```
+
 ## Commands
 
 ### Profile Management
@@ -106,7 +116,7 @@ xero contacts create --name "Acme Corp" --email acme@example.com --phone "+12345
 xero contacts create --file contact.json
 
 # Update a contact
-xero contacts update --contact-id abc-123 --name "Acme Corporation" --email new@acme.com
+xero contacts update --contact-id 00000000-0000-0000-0000-000000000001 --name "Acme Corporation" --email new@acme.com
 xero contacts update --file contact-update.json
 ```
 
@@ -114,7 +124,7 @@ xero contacts update --file contact-update.json
 
 ```bash
 xero contact-groups list
-xero contact-groups list --group-id abc-123
+xero contact-groups list --group-id 00000000-0000-0000-0000-000000000001
 ```
 
 ### Accounts
@@ -129,12 +139,12 @@ xero accounts list --json
 ```bash
 # List invoices
 xero invoices list
-xero invoices list --contact-id abc-123
+xero invoices list --contact-id 00000000-0000-0000-0000-000000000001
 xero invoices list --invoice-number INV-0001
 xero invoices list --page 2 --csv
 
 # Create an invoice (inline flags for a single line item)
-xero invoices create --contact-id abc-123 --type ACCREC \
+xero invoices create --contact-id 00000000-0000-0000-0000-000000000001 --type ACCREC \
   --description "Consulting" --quantity 10 --unit-amount 150 \
   --account-code 200 --tax-type OUTPUT2
 
@@ -142,7 +152,7 @@ xero invoices create --contact-id abc-123 --type ACCREC \
 xero invoices create --file invoice.json
 
 # Update a draft invoice
-xero invoices update --invoice-id abc-123 --reference "Updated ref"
+xero invoices update --invoice-id 00000000-0000-0000-0000-000000000001 --reference "Updated ref"
 xero invoices update --file invoice-update.json
 ```
 
@@ -151,7 +161,7 @@ xero invoices update --file invoice-update.json
 
 ```json
 {
-  "contactId": "abc-123",
+  "contactId": "00000000-0000-0000-0000-000000000001",
   "type": "ACCREC",
   "date": "2025-06-15",
   "reference": "REF-001",
@@ -181,13 +191,13 @@ xero invoices update --file invoice-update.json
 ```bash
 # List quotes
 xero quotes list
-xero quotes list --contact-id abc-123
+xero quotes list --contact-id 00000000-0000-0000-0000-000000000001
 xero quotes list --quote-number QU-0001
 
 # Create a quote
 xero quotes create --file quote.json
-xero quotes create --contact-id abc-123 --title "Project Quote" \
-  --description "Web design" --quantity 1 --unit-amount 5000 \
+xero quotes create --contact-id 00000000-0000-0000-0000-000000000001 --title "Project Quote" \
+  --date 2025-12-30 --description "Web design" --quantity 1 --unit-amount 5000 \
   --account-code 200 --tax-type OUTPUT2
 
 # Update a draft quote
@@ -199,11 +209,11 @@ xero quotes update --file quote-update.json
 ```bash
 # List credit notes
 xero credit-notes list
-xero credit-notes list --contact-id abc-123 --page 2
+xero credit-notes list --contact-id 00000000-0000-0000-0000-000000000001 --page 2
 
 # Create a credit note
 xero credit-notes create --file credit-note.json
-xero credit-notes create --contact-id abc-123 \
+xero credit-notes create --contact-id 00000000-0000-0000-0000-000000000001 \
   --description "Refund" --quantity 1 --unit-amount 100 \
   --account-code 200 --tax-type OUTPUT2
 
@@ -216,7 +226,7 @@ xero credit-notes update --file credit-note-update.json
 ```bash
 # List manual journals
 xero journals list
-xero journals list --journal-id abc-123
+xero journals list --journal-id 00000000-0000-0000-0000-000000000001
 xero journals list --modified-after 2025-01-01
 
 # Create a manual journal (requires JSON file — minimum 2 lines)
@@ -246,12 +256,12 @@ xero journals update --file journal-update.json
 ```bash
 # List bank transactions
 xero bank-transactions list
-xero bank-transactions list --bank-account-id abc-123
+xero bank-transactions list --bank-account-id 00000000-0000-0000-0000-000000000001
 
 # Create a bank transaction
 xero bank-transactions create --file bank-transaction.json
-xero bank-transactions create --type SPEND --bank-account-id abc-123 \
-  --contact-id def-456 --description "Office supplies" \
+xero bank-transactions create --type SPEND --bank-account-id 00000000-0000-0000-0000-000000000001 \
+  --contact-id 00000000-0000-0000-0000-000000000002 --description "Office supplies" \
   --quantity 1 --unit-amount 50 --account-code 429 --tax-type INPUT2
 
 # Update a bank transaction
@@ -263,12 +273,12 @@ xero bank-transactions update --file bank-transaction-update.json
 ```bash
 # List payments
 xero payments list
-xero payments list --invoice-id abc-123
+xero payments list --invoice-id 00000000-0000-0000-0000-000000000001
 xero payments list --invoice-number INV-0001
 xero payments list --reference "Payment ref"
 
 # Create a payment
-xero payments create --invoice-id abc-123 --account-id def-456 --amount 500
+xero payments create --invoice-id 00000000-0000-0000-0000-000000000001 --account-id 00000000-0000-0000-0000-000000000002 --amount 500
 xero payments create --file payment.json
 ```
 
@@ -284,7 +294,7 @@ xero items create --code WIDGET --name "Widget" --sale-price 29.99
 xero items create --file item.json
 
 # Update an item
-xero items update --item-id abc-123 --code WIDGET --name "Updated Widget"
+xero items update --item-id 00000000-0000-0000-0000-000000000001 --code WIDGET --name "Updated Widget"
 xero items update --file item-update.json
 ```
 
@@ -306,14 +316,14 @@ xero tracking categories list --include-archived
 xero tracking categories create --name "Department"
 
 # Update a tracking category
-xero tracking categories update --category-id abc-123 --name "Region"
-xero tracking categories update --category-id abc-123 --status ARCHIVED
+xero tracking categories update --category-id 00000000-0000-0000-0000-000000000001 --name "Region"
+xero tracking categories update --category-id 00000000-0000-0000-0000-000000000001 --status ARCHIVED
 
 # Create tracking options
-xero tracking options create --category-id abc-123 --names "Sales,Marketing,Engineering"
+xero tracking options create --category-id 00000000-0000-0000-0000-000000000001 --names "Sales,Marketing,Engineering"
 
 # Update tracking options
-xero tracking options update --category-id abc-123 --file tracking-options.json
+xero tracking options update --category-id 00000000-0000-0000-0000-000000000001 --file tracking-options.json
 ```
 
 ### Reports
@@ -334,12 +344,12 @@ xero reports balance-sheet --date 2025-12-31
 xero reports balance-sheet --timeframe MONTH --periods 12
 
 # Aged receivables (requires contact ID)
-xero reports aged-receivables --contact-id abc-123
-xero reports aged-receivables --contact-id abc-123 --report-date 2025-12-31
+xero reports aged-receivables --contact-id 00000000-0000-0000-0000-000000000001
+xero reports aged-receivables --contact-id 00000000-0000-0000-0000-000000000001 --report-date 2025-12-31
 
 # Aged payables (requires contact ID)
-xero reports aged-payables --contact-id abc-123
-xero reports aged-payables --contact-id abc-123 --from-date 2025-01-01 --to-date 2025-12-31
+xero reports aged-payables --contact-id 00000000-0000-0000-0000-000000000001
+xero reports aged-payables --contact-id 00000000-0000-0000-0000-000000000001 --from-date 2025-01-01 --to-date 2025-12-31
 ```
 
 ## JSON File Input

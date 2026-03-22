@@ -19,6 +19,7 @@ export default class QuotesCreate extends BaseCommand {
     summary: Flags.string({description: 'Quote summary'}),
     terms: Flags.string({description: 'Quote terms'}),
     reference: Flags.string({description: 'Quote reference'}),
+    date: Flags.string({description: 'Quote date (YYYY-MM-DD)'}),
     description: Flags.string({description: 'Line item description'}),
     quantity: Flags.string({description: 'Line item quantity'}),
     'unit-amount': Flags.string({description: 'Line item unit amount'}),
@@ -39,6 +40,7 @@ export default class QuotesCreate extends BaseCommand {
         summary: flags.summary,
         terms: flags.terms,
         reference: flags.reference,
+        date: flags.date,
         lineItems: [{
           description: flags.description,
           quantity: flags.quantity ? Number(flags.quantity) : undefined,
@@ -71,6 +73,7 @@ export default class QuotesCreate extends BaseCommand {
         terms: parsed.data.terms,
         reference: parsed.data.reference,
         quoteNumber: parsed.data.quoteNumber,
+        date: parsed.data.date,
       }
 
       const response = await xero.accountingApi.createQuotes(tenantId, {quotes: [quote]})

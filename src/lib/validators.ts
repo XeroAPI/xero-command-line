@@ -64,6 +64,7 @@ export const quoteCreateSchema = z.object({
   terms: z.string().optional(),
   reference: z.string().optional(),
   quoteNumber: z.string().optional(),
+  date: z.string().optional(),
 })
 
 export const quoteUpdateSchema = z.object({
