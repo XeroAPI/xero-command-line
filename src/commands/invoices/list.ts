@@ -21,6 +21,7 @@ export default class InvoicesList extends BaseCommand {
   }
 
   private readonly invoiceColumns = [
+    {key: 'invoiceID', header: 'ID'},
     {key: 'invoiceNumber', header: 'Number'},
     {key: 'type', header: 'Type'},
     {key: 'contact.name', header: 'Contact'},

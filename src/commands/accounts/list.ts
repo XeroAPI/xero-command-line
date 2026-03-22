@@ -24,6 +24,7 @@ export default class AccountsList extends BaseCommand {
     this.outputFormatted(
       result as unknown as Record<string, unknown>[],
       [
+        {key: 'accountID', header: 'ID'},
         {key: 'code', header: 'Code'},
         {key: 'name', header: 'Name'},
         {key: 'type', header: 'Type'},

@@ -26,6 +26,7 @@ export default class ItemsList extends BaseCommand {
     this.outputFormatted(
       result as unknown as Record<string, unknown>[],
       [
+        {key: 'itemID', header: 'ID'},
         {key: 'code', header: 'Code'},
         {key: 'name', header: 'Name'},
         {key: 'description', header: 'Description'},
