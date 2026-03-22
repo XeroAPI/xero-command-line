@@ -21,10 +21,17 @@ export default class ContactsList extends BaseCommand {
     const {flags} = await this.parse(ContactsList)
 
     const result = await this.xeroCall(flags, async (xero, tenantId) => {
-      const where = flags.search
-        ? `Name.Contains("${flags.search}") || EmailAddress.Contains("${flags.search}")`
-        : undefined
-      const response = await xero.accountingApi.getContacts(tenantId, undefined, where, undefined, undefined, flags.page)
+      const response = await xero.accountingApi.getContacts(
+        tenantId,
+        undefined, // ifModifiedSince
+        undefined, // where
+        undefined, // order
+        undefined, // iDs
+        flags.page, // page
+        undefined, // includeArchived
+        undefined, // summaryOnly
+        flags.search, // searchTerm
+      )
       return response.body.contacts ?? []
     })
 
