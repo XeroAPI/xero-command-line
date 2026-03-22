@@ -57,7 +57,7 @@
       "credit-notes": {
         "description": "Manage Xero credit notes"
       },
-      "journals": {
+      "manual-journals": {
         "description": "Manage manual journals"
       },
       "bank-transactions": {

@@ -225,15 +225,15 @@ xero credit-notes update --file credit-note-update.json
 
 ```bash
 # List manual journals
-xero journals list
-xero journals list --journal-id 00000000-0000-0000-0000-000000000001
-xero journals list --modified-after 2025-01-01
+xero manual-journals list
+xero manual-journals list --manual-journal-id 00000000-0000-0000-0000-000000000001
+xero manual-journals list --modified-after 2025-01-01
 
 # Create a manual journal (requires JSON file — minimum 2 lines)
-xero journals create --file journal.json
+xero manual-journals create --file journal.json
 
 # Update a draft manual journal
-xero journals update --file journal-update.json
+xero manual-journals update --file journal-update.json
 ```
 
 <details>

@@ -3,11 +3,11 @@ import {BaseCommand} from '../../base-command.js'
 import {journalUpdateSchema, formatZodError} from '../../lib/validators.js'
 import type {ManualJournal, ManualJournalLine} from 'xero-node'
 
-export default class JournalsUpdate extends BaseCommand {
+export default class ManualJournalsUpdate extends BaseCommand {
   static override description = 'Update a draft manual journal in Xero'
 
   static override examples = [
-    '<%= config.bin %> journals update --file journal-update.json',
+    '<%= config.bin %> manual-journals update --file journal-update.json',
   ]
 
   static override flags = {
@@ -16,7 +16,7 @@ export default class JournalsUpdate extends BaseCommand {
   }
 
   async run(): Promise<void> {
-    const {flags} = await this.parse(JournalsUpdate)
+    const {flags} = await this.parse(ManualJournalsUpdate)
 
     const data = this.readJsonFile(flags.file) as Record<string, unknown>
 

@@ -2,28 +2,28 @@ import {Flags} from '@oclif/core'
 import {BaseCommand} from '../../base-command.js'
 import {formatStatus, formatDate} from '../../lib/formatters.js'
 
-export default class JournalsList extends BaseCommand {
+export default class ManualJournalsList extends BaseCommand {
   static override description = 'List manual journals in Xero'
 
   static override examples = [
-    '<%= config.bin %> journals list',
-    '<%= config.bin %> journals list --journal-id abc-123',
-    '<%= config.bin %> journals list --modified-after 2025-01-01',
+    '<%= config.bin %> manual-journals list',
+    '<%= config.bin %> manual-journals list --manual-journal-id abc-123',
+    '<%= config.bin %> manual-journals list --modified-after 2025-01-01',
   ]
 
   static override flags = {
     ...BaseCommand.baseFlags,
-    'journal-id': Flags.string({description: 'Get a specific manual journal'}),
+    'manual-journal-id': Flags.string({description: 'Get a specific manual journal'}),
     'modified-after': Flags.string({description: 'Filter journals modified after date (YYYY-MM-DD)'}),
     page: Flags.integer({description: 'Page number'}),
   }
 
   async run(): Promise<void> {
-    const {flags} = await this.parse(JournalsList)
+    const {flags} = await this.parse(ManualJournalsList)
 
     const result = await this.xeroCall(flags, async (xero, tenantId) => {
-      if (flags['journal-id']) {
-        const response = await xero.accountingApi.getManualJournal(tenantId, flags['journal-id'])
+      if (flags['manual-journal-id']) {
+        const response = await xero.accountingApi.getManualJournal(tenantId, flags['manual-journal-id'])
         const journal = response.body.manualJournals?.[0]
         return journal ? [journal] : []
       }
