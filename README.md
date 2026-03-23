@@ -1,4 +1,4 @@
-# xero-cli
+# xero-command-line
 
 A command-line tool for the Xero API using PKCE OAuth. Authenticates via browser-based login — no client secret required. Supports multiple Xero organisations via named profiles.
 
@@ -8,7 +8,7 @@ A command-line tool for the Xero API using PKCE OAuth. Authenticates via browser
 
 ```bash
 git clone <repo-url>
-cd xero-cli
+cd xero-command-line
 npm install
 npm run build
 ```
