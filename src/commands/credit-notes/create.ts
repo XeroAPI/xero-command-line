@@ -74,7 +74,7 @@ export default class CreditNotesCreate extends BaseCommand {
       this.log(JSON.stringify(result, null, 2))
     } else {
       const r = result as Record<string, unknown> | undefined
-      this.log(`Credit note created: ${r?.creditNoteNumber} (${r?.creditNoteID})`)
+      this.log(`Credit note created: ${r?.creditNoteNumber ?? 'Draft'} (${r?.creditNoteID})`)
       if (shortCode && r?.creditNoteID) {
         this.log(`View in Xero: ${creditNoteDeepLink(shortCode, r.creditNoteID as string)}`)
       }

@@ -65,7 +65,7 @@ export default class CreditNotesUpdate extends BaseCommand {
       this.log(JSON.stringify(result, null, 2))
     } else {
       const r = result as Record<string, unknown> | undefined
-      this.log(`Credit note updated: ${r?.creditNoteNumber} (${r?.creditNoteID})`)
+      this.log(`Credit note updated: ${r?.creditNoteNumber ?? 'Draft'} (${r?.creditNoteID})`)
     }
   }
 }

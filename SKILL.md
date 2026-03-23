@@ -148,6 +148,8 @@ xero quotes create --file quote.json
 xero quotes update --file quote-update.json
 ```
 
+> **Note:** Xero's API requires `contact` and `date` on quote updates even though the CLI allows them to be omitted. If you get a validation error, ensure your update payload includes both fields.
+
 ### Credit Notes
 
 ```bash

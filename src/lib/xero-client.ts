@@ -77,11 +77,44 @@ export async function withRetry<T>(
         throw new Error('Resource not found.')
       }
 
-      throw lastError
+      throw sanitizeApiError(lastError)
     }
   }
 
-  throw lastError ?? new Error('Operation failed after retries')
+  throw lastError ? sanitizeApiError(lastError) : new Error('Operation failed after retries')
+}
+
+function sanitizeApiError(error: Error): Error {
+  try {
+    const err = error as unknown as Record<string, unknown>
+    const response = err.response as Record<string, unknown> | undefined
+    const body = response?.body as Record<string, unknown> | undefined
+
+    // Extract Xero validation messages if available
+    if (body) {
+      const statusCode = response?.statusCode ?? response?.status ?? ''
+      const elements = body.Elements as Array<Record<string, unknown>> | undefined
+      if (elements?.length) {
+        const messages = elements
+          .flatMap(el => (el.ValidationErrors as Array<{Message: string}>) ?? [])
+          .map(ve => ve.Message)
+          .filter(Boolean)
+        if (messages.length) {
+          return new Error(`Xero API error${statusCode ? ` (${statusCode})` : ''}: ${messages.join('; ')}`)
+        }
+      }
+
+      // Try top-level message from body
+      if (body.Message || body.message) {
+        return new Error(`Xero API error${statusCode ? ` (${statusCode})` : ''}: ${body.Message ?? body.message}`)
+      }
+    }
+  } catch {
+    // Fall through to returning the message-only error
+  }
+
+  // Fallback: only propagate the message string, never the full error object
+  return new Error(error.message)
 }
 
 function extractRetryAfter(message: string): number {

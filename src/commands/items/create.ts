@@ -43,16 +43,18 @@ export default class ItemsCreate extends BaseCommand {
     }
 
     const result = await this.xeroCall(flags, async (xero, tenantId) => {
-      const item: Item = {
-        code: parsed.data.code,
-        name: parsed.data.name,
-        description: parsed.data.description,
-        purchaseDescription: parsed.data.purchaseDescription,
-        isTrackedAsInventory: parsed.data.isTrackedAsInventory,
-        inventoryAssetAccountCode: parsed.data.inventoryAssetAccountCode,
-        salesDetails: parsed.data.salesDetails as Item['salesDetails'],
-        purchaseDetails: parsed.data.purchaseDetails as Item['purchaseDetails'],
-      }
+      const item = Object.fromEntries(
+        Object.entries({
+          code: parsed.data.code,
+          name: parsed.data.name,
+          description: parsed.data.description,
+          purchaseDescription: parsed.data.purchaseDescription,
+          isTrackedAsInventory: parsed.data.isTrackedAsInventory,
+          inventoryAssetAccountCode: parsed.data.inventoryAssetAccountCode,
+          salesDetails: parsed.data.salesDetails as Item['salesDetails'],
+          purchaseDetails: parsed.data.purchaseDetails as Item['purchaseDetails'],
+        }).filter(([, v]) => v !== undefined),
+      ) as unknown as Item
 
       const response = await xero.accountingApi.createItems(tenantId, {items: [item]})
       return response.body.items?.[0]
