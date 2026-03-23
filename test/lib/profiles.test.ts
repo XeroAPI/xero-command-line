@@ -4,7 +4,7 @@ import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 
 // We need to mock the config directory before importing the module
-const TEST_DIR = join(tmpdir(), `xero-cli-test-${Date.now()}`)
+const TEST_DIR = join(tmpdir(), `xero-command-line-test-${Date.now()}`)
 
 vi.mock('node:os', async () => {
   const actual = await vi.importActual<typeof import('node:os')>('node:os')
@@ -19,7 +19,7 @@ const {addProfile, removeProfile, listProfiles, setDefaultProfile, getDefaultPro
 
 describe('profiles', () => {
   beforeEach(() => {
-    mkdirSync(join(TEST_DIR, '.config', 'xero-cli'), {recursive: true})
+    mkdirSync(join(TEST_DIR, '.config', 'xero-command-line'), {recursive: true})
   })
 
   afterEach(() => {
@@ -30,7 +30,7 @@ describe('profiles', () => {
     it('creates a new profile', () => {
       addProfile('test-profile', 'client-id-123')
 
-      const configPath = join(TEST_DIR, '.config', 'xero-cli', 'config.json')
+      const configPath = join(TEST_DIR, '.config', 'xero-command-line', 'config.json')
       expect(existsSync(configPath)).toBe(true)
 
       const config = JSON.parse(readFileSync(configPath, 'utf-8'))

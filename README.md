@@ -7,7 +7,7 @@ A command-line tool for the Xero API using PKCE OAuth. Authenticates via browser
 ## Install
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/XeroAPI/xero-command-line.git
 cd xero-command-line
 npm install
 npm run build
@@ -53,7 +53,7 @@ xero login
 
 This opens your browser for Xero's OAuth consent flow. After you authorize, the CLI receives tokens via a local callback server. If your app is connected to multiple organisations, you'll be prompted to select one.
 
-Tokens are encrypted (AES-256-GCM) and cached at `~/.config/xero-cli/tokens.json`. The encryption key is stored in the OS keychain. Tokens refresh automatically when expired.
+Tokens are encrypted (AES-256-GCM) and cached at `~/.config/xero-command-line/tokens.json`. The encryption key is stored in the OS keychain. Tokens refresh automatically when expired.
 
 ## Global Flags
 

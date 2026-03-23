@@ -4,7 +4,7 @@ import {randomBytes} from 'node:crypto'
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 
-const TEST_DIR = join(tmpdir(), `xero-cli-auth-test-${Date.now()}`)
+const TEST_DIR = join(tmpdir(), `xero-command-line-auth-test-${Date.now()}`)
 const TEST_KEY = randomBytes(32)
 
 vi.mock('node:os', async () => {
@@ -30,7 +30,7 @@ const {getCachedTokenSet, cacheTokenSet, clearCachedToken} = await import('../..
 
 describe('auth token cache', () => {
   beforeEach(() => {
-    mkdirSync(join(TEST_DIR, '.config', 'xero-cli'), {recursive: true})
+    mkdirSync(join(TEST_DIR, '.config', 'xero-command-line'), {recursive: true})
   })
 
   afterEach(() => {

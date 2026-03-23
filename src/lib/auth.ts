@@ -23,7 +23,7 @@ interface TokenCache {
   [profileName: string]: EncryptedTokenEntry
 }
 
-const CONFIG_DIR = join(homedir(), '.config', 'xero-cli')
+const CONFIG_DIR = join(homedir(), '.config', 'xero-command-line')
 const TOKEN_PATH = join(CONFIG_DIR, 'tokens.json')
 const TOKEN_BUFFER_MS = 60_000 // Refresh 60s before expiry
 

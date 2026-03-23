@@ -12,7 +12,7 @@ interface ConfigFile {
   profiles: Record<string, {clientId: string}>
 }
 
-const CONFIG_DIR = join(homedir(), '.config', 'xero-cli')
+const CONFIG_DIR = join(homedir(), '.config', 'xero-command-line')
 const CONFIG_PATH = join(CONFIG_DIR, 'config.json')
 
 function ensureConfigDir(): void {

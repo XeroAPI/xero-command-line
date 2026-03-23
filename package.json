@@ -4,6 +4,14 @@
   "description": "CLI tool for Xero API access via PKCE OAuth",
   "license": "MIT",
   "author": "Regan Ashworth",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/XeroAPI/xero-command-line.git"
+  },
+  "homepage": "https://github.com/XeroAPI/xero-command-line#readme",
+  "bugs": {
+    "url": "https://github.com/XeroAPI/xero-command-line/issues"
+  },
   "keywords": [
     "xero",
     "cli",
@@ -32,7 +40,7 @@
   },
   "oclif": {
     "bin": "xero",
-    "dirname": "xero-cli",
+    "dirname": "xero-command-line",
     "commands": "./dist/commands",
     "topicSeparator": " ",
     "topics": {
