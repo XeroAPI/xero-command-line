@@ -1,5 +1,5 @@
 ---
-name: xero_cli
+name: xero_command_line
 description: Interact with the Xero accounting API using the `xero` CLI tool. Manage contacts, invoices, quotes, credit notes, payments, bank transactions, items, manual journals, tracking categories, tax rates, reports, and organisation details.
 user-invocable: true
 metadata:
