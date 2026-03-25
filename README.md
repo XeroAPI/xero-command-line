@@ -7,22 +7,23 @@ A command-line tool for the Xero API using PKCE OAuth. Authenticates via browser
 ## Install
 
 ```bash
+npm install -g @xeroapi/xero-command-line
+```
+
+Or try it without installing:
+
+```bash
+npx @xeroapi/xero-command-line <command>
+```
+
+### From source
+
+```bash
 git clone https://github.com/XeroAPI/xero-command-line.git
 cd xero-command-line
 npm install
 npm run build
-```
-
-To make `xero` available globally:
-
-```bash
 npm link
-```
-
-Or run directly:
-
-```bash
-./bin/run.js <command>
 ```
 
 ### Prerequisites
