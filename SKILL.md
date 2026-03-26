@@ -7,11 +7,27 @@ metadata:
     requires:
       bins:
         - xero
+      install: "npm install -g @xeroapi/xero-command-line"
+    keywords:
+      - accounting
+      - xero
+      - invoices
+      - bookkeeping
+      - finance
 ---
 
 # xero CLI
 
 You have access to the `xero` CLI — a command-line tool for the Xero accounting API using PKCE OAuth. Use it to read and write accounting data in the user's Xero organisation.
+
+## Authentication & Setup
+
+**Note for Agent:** If the user is not logged in, you must instruct them to run `xero login` in their terminal manually, as it requires a browser-based OAuth flow that you cannot complete.
+
+```bash
+# Check if logged in / check organization details
+xero org details
+```
 
 ## Global flags
 

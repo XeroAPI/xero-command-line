@@ -30,6 +30,7 @@ npm link
 
 - Node.js >= 18
 - A Xero OAuth 2.0 app at [developer.xero.com](https://developer.xero.com/app/manage) (no client secret needed — PKCE handles authentication)
+- Set the redirect URI on your OAuth 2.0 PKCE app to `http://localhost:8742/callback`
 
 ## Setup
 
