@@ -300,6 +300,13 @@ xero items update --item-id 00000000-0000-0000-0000-000000000001 --code WIDGET -
 xero items update --file item-update.json
 ```
 
+### Currencies
+
+```bash
+xero currencies list
+xero currencies list --json
+```
+
 ### Tax Rates
 
 ```bash
