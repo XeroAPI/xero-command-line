@@ -1,6 +1,7 @@
 import {XeroClient} from 'xero-node'
 import {getCachedTokenSet, cacheTokenSet, clearCachedToken, isTokenExpired} from './auth.js'
 import {refreshAccessToken} from './oauth.js'
+import {getClientHeaders} from './get-client-headers.js'
 
 export {clearCachedToken}
 
@@ -30,6 +31,12 @@ export async function createXeroClient(
 
   const xero = new XeroClient({clientId, clientSecret: ''})
   xero.setTokenSet({access_token: accessToken})
+
+  const {headers} = getClientHeaders()
+  ;(xero.accountingApi as any).defaultHeaders = {
+    ...(xero.accountingApi as any).defaultHeaders,
+    ...headers,
+  }
 
   return {xero, tenantId}
 }
