@@ -171,6 +171,16 @@ export const itemUpdateSchema = itemCreateSchema.extend({
   itemId: z.string().min(1, 'Item ID is required'),
 })
 
+export const accountUpdateSchema = z.object({
+  accountId: z.string().min(1, 'Account ID is required'),
+  name: z.string().min(1).optional(),
+  code: z.string().min(1).optional(),
+  description: z.string().optional(),
+  status: z.enum(['ACTIVE', 'ARCHIVED']).optional(),
+  taxType: z.string().optional(),
+  enablePaymentsToAccount: z.boolean().optional(),
+})
+
 export const trackingCategoryCreateSchema = z.object({
   name: z.string().min(1, 'Name is required'),
 })
