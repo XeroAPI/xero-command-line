@@ -108,6 +108,7 @@
     "@napi-rs/keyring": "^1.2.0",
     "@oclif/core": "^4",
     "@oclif/plugin-help": "^6",
+    "@toon-format/toon": "^2.1.0",
     "chalk": "^5",
     "cli-table3": "^0.6",
     "open": "^11.0.0",

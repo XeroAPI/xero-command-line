@@ -25,6 +25,10 @@ export abstract class BaseCommand extends Command {
       description: 'Output as CSV',
       default: false,
     }),
+    toon: Flags.boolean({
+      description: 'Output as TOON',
+      default: false,
+    }),
   }
 
   protected resolveCredentials(flags: {
@@ -57,8 +61,9 @@ export abstract class BaseCommand extends Command {
     return withRetry(profileName, clientId, operation)
   }
 
-  protected getOutputFormat(flags: {json?: boolean; csv?: boolean}): OutputFormat {
+  protected getOutputFormat(flags: {json?: boolean; csv?: boolean; toon?: boolean}): OutputFormat {
     if (flags.json) return 'json'
+    if (flags.toon) return 'toon'
     if (flags.csv) return 'csv'
     return 'table'
   }
@@ -66,7 +71,7 @@ export abstract class BaseCommand extends Command {
   protected outputFormatted(
     data: Record<string, unknown>[],
     columns: {key: string; header: string; format?: (value: unknown) => string}[],
-    flags: {json?: boolean; csv?: boolean},
+    flags: {json?: boolean; csv?: boolean; toon?: boolean},
   ): void {
     const format = this.getOutputFormat(flags)
     this.log(formatOutput(data, columns, format))

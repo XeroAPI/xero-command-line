@@ -67,6 +67,7 @@ Every command that calls the Xero API supports:
 | `--client-id <id>` | Override profile with an inline client ID |
 | `--json` | Output raw JSON (for piping/scripting) |
 | `--csv` | Output as CSV |
+| `--toon` | Output as [TOON](https://github.com/toon-format/toon) (compact, LLM-friendly) |
 
 Environment variables `XERO_PROFILE` and `XERO_CLIENT_ID` are also supported.
 
@@ -380,6 +381,9 @@ xero contacts list --json
 
 # CSV (for spreadsheets)
 xero contacts list --csv
+
+# TOON (compact format, ~40% fewer tokens — ideal for LLM pipelines)
+xero contacts list --toon
 ```
 
 ## Multiple Organisations
