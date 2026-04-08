@@ -1,7 +1,8 @@
 import Table from 'cli-table3'
 import chalk from 'chalk'
+import {encode} from '@toon-format/toon'
 
-export type OutputFormat = 'table' | 'json' | 'csv'
+export type OutputFormat = 'table' | 'json' | 'csv' | 'toon'
 
 export function formatOutput(
   data: Record<string, unknown>[],
@@ -11,6 +12,8 @@ export function formatOutput(
   switch (format) {
     case 'json':
       return JSON.stringify(data, null, 2)
+    case 'toon':
+      return encode(JSON.parse(JSON.stringify(data)))
     case 'csv':
       return formatCsv(data, columns)
     default:

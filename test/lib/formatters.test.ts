@@ -44,6 +44,13 @@ describe('formatOutput', () => {
     const result = formatOutput([], columns, 'table')
     expect(result).toContain('No results found')
   })
+
+  it('outputs TOON format', () => {
+    const result = formatOutput(data, columns, 'toon')
+    expect(result).toBeTruthy()
+    expect(result).toContain('Alice')
+    expect(result).toContain('Bob')
+  })
 })
 
 describe('formatCurrency', () => {
