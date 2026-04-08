@@ -1,6 +1,6 @@
 {
   "name": "@xeroapi/xero-command-line",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "CLI tool for Xero API access via PKCE OAuth",
   "license": "MIT",
   "author": "Regan Ashworth",
