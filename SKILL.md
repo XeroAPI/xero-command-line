@@ -1,6 +1,6 @@
 ---
 name: xero_command_line
-description: Interact with the Xero accounting API using the `xero` CLI tool. Manage contacts, invoices, quotes, credit notes, payments, bank transactions, items, manual journals, tracking categories, currencies, tax rates, reports, and organisation details.
+description: Interact with the Xero accounting API using the `xero` CLI tool. Manage contacts, invoices, quotes, credit notes, payments, bank transactions, items, manual journals, tracking categories, currencies, tax rates, reports, organisation details, and attachments.
 user-invocable: true
 metadata:
   openclaw:
@@ -220,6 +220,45 @@ xero bank-transactions update --file bank-transaction-update.json
 
 Transaction types: `RECEIVE` (money in), `SPEND` (money out).
 
+### Attachments
+
+Files can be attached to invoices, credit notes, bank transactions, quotes, contacts, accounts, and manual journals. Each supports `upload`, `list`, and `download`. The Xero API does not support deleting attachments.
+
+Supported file types: `.pdf`, `.png`, `.jpg`/`.jpeg`, `.gif`, `.webp`, `.xml`, `.csv`, `.txt`. Maximum 25MB per file, up to 10 attachments per resource.
+
+```bash
+# Upload
+xero invoices attachments upload --invoice-id <ID> --file <path>
+xero invoices attachments upload --invoice-id <ID> --file <path> --include-online
+xero credit-notes attachments upload --credit-note-id <ID> --file <path> --include-online
+xero bank-transactions attachments upload --bank-transaction-id <ID> --file <path>
+xero quotes attachments upload --quote-id <ID> --file <path>
+xero contacts attachments upload --contact-id <ID> --file <path>
+xero accounts attachments upload --account-id <ID> --file <path>
+xero manual-journals attachments upload --manual-journal-id <ID> --file <path>
+
+# List (shows attachmentID, fileName, mimeType, size, URL)
+xero invoices attachments list --invoice-id <ID>
+xero credit-notes attachments list --credit-note-id <ID>
+xero bank-transactions attachments list --bank-transaction-id <ID>
+xero quotes attachments list --quote-id <ID>
+xero contacts attachments list --contact-id <ID>
+xero accounts attachments list --account-id <ID>
+xero manual-journals attachments list --manual-journal-id <ID>
+
+# Download (--output defaults to current directory; accepts a file path or directory)
+xero invoices attachments download --invoice-id <ID> --attachment-id <ID>
+xero invoices attachments download --invoice-id <ID> --attachment-id <ID> --output ./downloads/
+xero credit-notes attachments download --credit-note-id <ID> --attachment-id <ID>
+xero bank-transactions attachments download --bank-transaction-id <ID> --attachment-id <ID>
+xero quotes attachments download --quote-id <ID> --attachment-id <ID>
+xero contacts attachments download --contact-id <ID> --attachment-id <ID>
+xero accounts attachments download --account-id <ID> --attachment-id <ID>
+xero manual-journals attachments download --manual-journal-id <ID> --attachment-id <ID>
+```
+
+`--include-online` (invoices and credit notes only) makes the attachment visible to the end customer in their online invoice/credit note view.
+
 ### Payments
 
 ```bash
@@ -313,3 +352,4 @@ xero reports aged-payables --contact-id <ID> --from-date 2025-01-01 --to-date 20
 - For multi-line-item creates, always use `--file` with a JSON payload.
 - Tax types vary by region. Run `xero tax-rates list` to see what's available.
 - Account codes are needed for line items. Run `xero accounts list` to find them.
+- To attach a file: `xero <topic> attachments upload --<resource>-id <ID> --file <path>`. Run `list` first to get the resource ID, then `attachments list` to get attachment IDs for download.
