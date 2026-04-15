@@ -22,7 +22,25 @@ You have access to the `xero` CLI — a command-line tool for the Xero accountin
 
 ## Authentication & Setup
 
-**Note for Agent:** If the user is not logged in, you must instruct them to run `xero login` in their terminal manually, as it requires a browser-based OAuth flow that you cannot complete.
+The CLI supports two authentication modes:
+
+### Option A: Environment variable bypass (no browser required)
+
+If all three of the following environment variables are set, the CLI uses them directly and skips the OAuth login flow entirely:
+
+```bash
+export XERO_ACCESS_TOKEN="<access_token>"
+export XERO_REFRESH_TOKEN="<refresh_token>"
+export XERO_TENANT_ID="<tenant_id>"
+```
+
+When these are set, **you do not need to run `xero login`** — just run commands directly. This is useful in CI/CD pipelines, agent environments, or anywhere a browser-based OAuth flow is impractical.
+
+To find existing token values on this machine, check `~/.config/xero-command-line/tokens.json` (stored as plaintext). The `tenantId` field maps to `XERO_TENANT_ID`.
+
+### Option B: Interactive OAuth login (standard)
+
+**Note for Agent:** If env vars are not set and the user is not logged in, you must instruct them to run `xero login` in their terminal manually, as it requires a browser-based OAuth flow that you cannot complete.
 
 ```bash
 # Check if logged in / check organization details
@@ -353,3 +371,4 @@ xero reports aged-payables --contact-id <ID> --from-date 2025-01-01 --to-date 20
 - Tax types vary by region. Run `xero tax-rates list` to see what's available.
 - Account codes are needed for line items. Run `xero accounts list` to find them.
 - To attach a file: `xero <topic> attachments upload --<resource>-id <ID> --file <path>`. Run `list` first to get the resource ID, then `attachments list` to get attachment IDs for download.
+- If `XERO_ACCESS_TOKEN`, `XERO_REFRESH_TOKEN`, and `XERO_TENANT_ID` are all set, the CLI bypasses OAuth entirely — no `xero login` needed.
