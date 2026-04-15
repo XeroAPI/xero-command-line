@@ -32,6 +32,8 @@
   ],
   "scripts": {
     "build": "tsc -b",
+    "build:binary": "bun build --compile --minify bin/bun-run.ts --outfile xero",
+    "build:binary:linux": "bun build --compile --minify --target=bun-linux-x64 bin/bun-run.ts --outfile xero-linux",
     "dev": "node --loader ts-node/esm bin/dev.js",
     "test": "vitest run",
     "test:watch": "vitest",
