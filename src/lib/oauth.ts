@@ -7,11 +7,10 @@ const XERO_TOKEN_BASE = 'https://identity.xero.com'
 const REDIRECT_URI = 'http://localhost:8742/callback'
 const CALLBACK_TIMEOUT_MS = 120_000
 
+const REQUIRED_OAUTH_SCOPES = ['openid', 'profile', 'email', 'offline_access']
+
 const SCOPES = [
-  'openid',
-  'profile',
-  'email',
-  'offline_access',
+  ...REQUIRED_OAUTH_SCOPES,
   // Contacts & settings
   'accounting.contacts',
   'accounting.settings',
@@ -56,12 +55,18 @@ function generateCodeChallenge(verifier: string): string {
   return createHash('sha256').update(verifier).digest('base64url')
 }
 
+function resolveScopes(scopes?: string): string {
+  if (!scopes) return SCOPES
+  const requested = scopes.split(/\s+/).filter(Boolean)
+  return [...new Set([...REQUIRED_OAUTH_SCOPES, ...requested])].join(' ')
+}
+
 function buildAuthUrl(clientId: string, codeChallenge: string, state: string, scopes?: string): string {
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: clientId,
     redirect_uri: REDIRECT_URI,
-    scope: scopes ?? SCOPES,
+    scope: resolveScopes(scopes),
     code_challenge: codeChallenge,
     code_challenge_method: 'S256',
     state,
