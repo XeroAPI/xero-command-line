@@ -29,6 +29,15 @@ You have access to the `xero` CLI — a command-line tool for the Xero accountin
 xero org details
 ```
 
+## IMPORTANT: Profile and identity verification
+
+Before executing **any** commands (including read-only operations), you **must** verify which Xero organisation is active:
+
+1. **Always run `xero org details` at the start of a session** and display the organisation name to the user before executing any other commands. Do not proceed until the user confirms this is the correct org.
+2. **Use `-p <profile>` explicitly** when the user has specified or confirmed which profile/org to use. Do not silently rely on the default profile or environment variables without confirmation.
+3. **Warn the user if `XERO_PROFILE` or `XERO_CLIENT_ID` environment variables are set**, as these silently override the default profile and may connect to an unintended organisation. Check with `echo $XERO_PROFILE $XERO_CLIENT_ID` if in doubt.
+4. **Never switch profiles or call `xero profile set-default`** without explicit user instruction. Changing the default profile affects all subsequent commands and other tools sharing the same config.
+
 ## IMPORTANT: Safety rules for write operations
 
 Any command that **creates, updates, or deletes** data (invoices, contacts, payments, bank transactions, manual journals, credit notes, quotes, items, tracking categories) is a write operation. Before executing a write operation you **must** follow these steps:
