@@ -4,6 +4,8 @@ description: Interact with the Xero accounting API using the `xero` CLI tool. Ma
 user-invocable: true
 metadata:
   openclaw:
+    source: "https://github.com/XeroAPI/xero-command-line"
+    homepage: "https://github.com/XeroAPI/xero-command-line#readme"
     requires:
       bins:
         - xero
