@@ -29,6 +29,17 @@ You have access to the `xero` CLI — a command-line tool for the Xero accountin
 xero org details
 ```
 
+## IMPORTANT: Safety rules for write operations
+
+Any command that **creates, updates, or deletes** data (invoices, contacts, payments, bank transactions, manual journals, credit notes, quotes, items, tracking categories) is a write operation. Before executing a write operation you **must** follow these steps:
+
+1. **Confirm the active profile and organisation.** Run `xero org details` and show the user which organisation will be affected. Never assume the correct org is active.
+2. **Use read-only commands first** to verify IDs and details (e.g. list contacts, invoices, accounts) before referencing them in a write.
+3. **Show the user a summary** of what will be written — include the resource type, key fields, and target organisation — then **wait for explicit user approval** before executing the write command.
+4. **Do not proceed** with the write unless the user confirms. A simple "yes" or "go ahead" is sufficient, but silence or ambiguity is not approval.
+
+These rules apply regardless of whether the write is performed via inline flags or `--file`. They exist to prevent accidental creation or modification of financial records in the wrong organisation.
+
 ## Global flags
 
 Every API command supports these flags:
