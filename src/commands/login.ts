@@ -9,6 +9,7 @@ export default class Login extends BaseCommand {
   static override examples = [
     '<%= config.bin %> login',
     '<%= config.bin %> login -p acme-corp',
+    '<%= config.bin %> login --scope "accounting.transactions.read accounting.contacts.read accounting.reports.read"',
   ]
 
   static override flags = {
@@ -21,6 +22,10 @@ export default class Login extends BaseCommand {
       description: 'Xero client ID (overrides profile)',
       env: 'XERO_CLIENT_ID',
     }),
+    scope: Flags.string({
+      description: 'Override OAuth scopes (space-separated). openid/profile/email/offline_access auto-prepended.',
+      env: 'XERO_SCOPES',
+    }),
   }
 
   async run(): Promise<void> {
@@ -29,7 +34,7 @@ export default class Login extends BaseCommand {
 
     this.log('Opening browser for Xero login...')
 
-    const {tokenSet, tenantId, tenantName} = await performLogin(clientId)
+    const {tokenSet, tenantId, tenantName} = await performLogin(clientId, flags.scope)
     await cacheTokenSet(profileName, tokenSet, tenantId, tenantName)
 
     this.log(`Logged in to ${tenantName}`)
