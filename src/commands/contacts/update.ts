@@ -1,6 +1,6 @@
 import {Flags} from '@oclif/core'
 import {BaseCommand} from '../../base-command.js'
-import {contactUpdateSchema, formatZodError} from '../../lib/validators.js'
+import {contactUpdateSchema, contactFileUpdateSchema, formatZodError} from '../../lib/validators.js'
 import type {Contact, Phone, Address} from 'xero-node'
 
 export default class ContactsUpdate extends BaseCommand {
@@ -25,11 +25,28 @@ export default class ContactsUpdate extends BaseCommand {
   async run(): Promise<void> {
     const {flags} = await this.parse(ContactsUpdate)
 
-    let data: Record<string, unknown>
     if (flags.file) {
-      data = this.readJsonFile(flags.file) as Record<string, unknown>
+      const fileData = this.readJsonFile(flags.file) as Record<string, unknown>
+      const parsed = contactFileUpdateSchema.safeParse(fileData)
+      if (!parsed.success) {
+        this.error(`Validation errors:\n${formatZodError(parsed.error)}`)
+      }
+
+      const contactID = parsed.data.contactID
+
+      const result = await this.xeroCall(flags, async (xero, tenantId) => {
+        const response = await xero.accountingApi.updateContact(tenantId, contactID, {contacts: [fileData as Contact]})
+        return response.body.contacts?.[0]
+      })
+
+      if (flags.json) {
+        this.log(JSON.stringify(result, null, 2))
+      } else {
+        const r = result as Record<string, unknown> | undefined
+        this.log(`Contact updated: ${r?.name} (${r?.contactID})`)
+      }
     } else {
-      data = {
+      const data = {
         contactId: flags['contact-id'],
         name: flags.name,
         email: flags.email,
@@ -37,32 +54,32 @@ export default class ContactsUpdate extends BaseCommand {
         firstName: flags['first-name'],
         lastName: flags['last-name'],
       }
-    }
 
-    const parsed = contactUpdateSchema.safeParse(data)
-    if (!parsed.success) {
-      this.error(`Validation errors:\n${formatZodError(parsed.error)}`)
-    }
-
-    const result = await this.xeroCall(flags, async (xero, tenantId) => {
-      const contact: Contact = {
-        contactID: parsed.data.contactId,
-        name: parsed.data.name,
-        emailAddress: parsed.data.email,
-        firstName: parsed.data.firstName,
-        lastName: parsed.data.lastName,
-        phones: parsed.data.phone ? [{phoneNumber: parsed.data.phone} as Phone] : undefined,
-        addresses: parsed.data.address ? [parsed.data.address as Address] : undefined,
+      const parsed = contactUpdateSchema.safeParse(data)
+      if (!parsed.success) {
+        this.error(`Validation errors:\n${formatZodError(parsed.error)}`)
       }
-      const response = await xero.accountingApi.updateContact(tenantId, parsed.data.contactId, {contacts: [contact]})
-      return response.body.contacts?.[0]
-    })
 
-    if (flags.json) {
-      this.log(JSON.stringify(result, null, 2))
-    } else {
-      const r = result as Record<string, unknown> | undefined
-      this.log(`Contact updated: ${r?.name} (${r?.contactID})`)
+      const result = await this.xeroCall(flags, async (xero, tenantId) => {
+        const contact: Contact = {
+          contactID: parsed.data.contactId,
+          name: parsed.data.name,
+          emailAddress: parsed.data.email,
+          firstName: parsed.data.firstName,
+          lastName: parsed.data.lastName,
+          phones: parsed.data.phone ? [{phoneNumber: parsed.data.phone} as Phone] : undefined,
+          addresses: parsed.data.address ? [parsed.data.address as Address] : undefined,
+        }
+        const response = await xero.accountingApi.updateContact(tenantId, parsed.data.contactId, {contacts: [contact]})
+        return response.body.contacts?.[0]
+      })
+
+      if (flags.json) {
+        this.log(JSON.stringify(result, null, 2))
+      } else {
+        const r = result as Record<string, unknown> | undefined
+        this.log(`Contact updated: ${r?.name} (${r?.contactID})`)
+      }
     }
   }
 }

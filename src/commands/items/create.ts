@@ -1,6 +1,6 @@
 import {Flags} from '@oclif/core'
 import {BaseCommand} from '../../base-command.js'
-import {itemCreateSchema, formatZodError} from '../../lib/validators.js'
+import {itemCreateSchema, itemFileCreateSchema, formatZodError} from '../../lib/validators.js'
 import type {Item} from 'xero-node'
 
 export default class ItemsCreate extends BaseCommand {
@@ -24,47 +24,62 @@ export default class ItemsCreate extends BaseCommand {
   async run(): Promise<void> {
     const {flags} = await this.parse(ItemsCreate)
 
-    let data: Record<string, unknown>
     if (flags.file) {
-      data = this.readJsonFile(flags.file) as Record<string, unknown>
+      const fileData = this.readJsonFile(flags.file) as Record<string, unknown>
+      const parsed = itemFileCreateSchema.safeParse(fileData)
+      if (!parsed.success) {
+        this.error(`Validation errors:\n${formatZodError(parsed.error)}`)
+      }
+
+      const result = await this.xeroCall(flags, async (xero, tenantId) => {
+        const response = await xero.accountingApi.createItems(tenantId, {items: [fileData as unknown as Item]})
+        return response.body.items?.[0]
+      })
+
+      if (flags.json) {
+        this.log(JSON.stringify(result, null, 2))
+      } else {
+        const r = result as Record<string, unknown> | undefined
+        this.log(`Item created: ${r?.code} - ${r?.name} (${r?.itemID})`)
+      }
     } else {
-      data = {
+      const data = {
         code: flags.code,
         name: flags.name,
         description: flags.description,
         salesDetails: flags['sale-price'] ? {unitPrice: Number(flags['sale-price'])} : undefined,
         purchaseDetails: flags['purchase-price'] ? {unitPrice: Number(flags['purchase-price'])} : undefined,
       }
-    }
 
-    const parsed = itemCreateSchema.safeParse(data)
-    if (!parsed.success) {
-      this.error(`Validation errors:\n${formatZodError(parsed.error)}`)
-    }
+      const parsed = itemCreateSchema.safeParse(data)
+      if (!parsed.success) {
+        this.error(`Validation errors:\n${formatZodError(parsed.error)}`)
+      }
 
-    const result = await this.xeroCall(flags, async (xero, tenantId) => {
-      const item = Object.fromEntries(
-        Object.entries({
-          code: parsed.data.code,
-          name: parsed.data.name,
-          description: parsed.data.description,
-          purchaseDescription: parsed.data.purchaseDescription,
-          isTrackedAsInventory: parsed.data.isTrackedAsInventory,
-          inventoryAssetAccountCode: parsed.data.inventoryAssetAccountCode,
-          salesDetails: parsed.data.salesDetails as Item['salesDetails'],
-          purchaseDetails: parsed.data.purchaseDetails as Item['purchaseDetails'],
-        }).filter(([, v]) => v !== undefined),
-      ) as unknown as Item
+      const result = await this.xeroCall(flags, async (xero, tenantId) => {
+        const item = Object.fromEntries(
+          Object.entries({
+            code: parsed.data.code,
+            name: parsed.data.name,
+            description: parsed.data.description,
+            purchaseDescription: parsed.data.purchaseDescription,
+            isTrackedAsInventory: parsed.data.isTrackedAsInventory,
+            inventoryAssetAccountCode: parsed.data.inventoryAssetAccountCode,
+            salesDetails: parsed.data.salesDetails as Item['salesDetails'],
+            purchaseDetails: parsed.data.purchaseDetails as Item['purchaseDetails'],
+          }).filter(([, v]) => v !== undefined),
+        ) as unknown as Item
 
-      const response = await xero.accountingApi.createItems(tenantId, {items: [item]})
-      return response.body.items?.[0]
-    })
+        const response = await xero.accountingApi.createItems(tenantId, {items: [item]})
+        return response.body.items?.[0]
+      })
 
-    if (flags.json) {
-      this.log(JSON.stringify(result, null, 2))
-    } else {
-      const r = result as Record<string, unknown> | undefined
-      this.log(`Item created: ${r?.code} - ${r?.name} (${r?.itemID})`)
+      if (flags.json) {
+        this.log(JSON.stringify(result, null, 2))
+      } else {
+        const r = result as Record<string, unknown> | undefined
+        this.log(`Item created: ${r?.code} - ${r?.name} (${r?.itemID})`)
+      }
     }
   }
 }

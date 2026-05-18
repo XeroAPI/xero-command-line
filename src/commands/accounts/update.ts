@@ -1,6 +1,6 @@
 import {Flags} from '@oclif/core'
 import {BaseCommand} from '../../base-command.js'
-import {accountUpdateSchema, formatZodError} from '../../lib/validators.js'
+import {accountUpdateSchema, accountFileUpdateSchema, formatZodError} from '../../lib/validators.js'
 import type {Account} from 'xero-node'
 
 export default class AccountsUpdate extends BaseCommand {
@@ -26,11 +26,28 @@ export default class AccountsUpdate extends BaseCommand {
   async run(): Promise<void> {
     const {flags} = await this.parse(AccountsUpdate)
 
-    let data: Record<string, unknown>
     if (flags.file) {
-      data = this.readJsonFile(flags.file) as Record<string, unknown>
+      const fileData = this.readJsonFile(flags.file) as Record<string, unknown>
+      const parsed = accountFileUpdateSchema.safeParse(fileData)
+      if (!parsed.success) {
+        this.error(`Validation errors:\n${formatZodError(parsed.error)}`)
+      }
+
+      const accountID = parsed.data.accountID
+
+      const result = await this.xeroCall(flags, async (xero, tenantId) => {
+        const response = await xero.accountingApi.updateAccount(tenantId, accountID, {accounts: [fileData as Account]})
+        return response.body.accounts?.[0]
+      })
+
+      if (flags.json) {
+        this.log(JSON.stringify(result, null, 2))
+      } else {
+        const r = result as Record<string, unknown> | undefined
+        this.log(`Account updated: ${r?.name} (${r?.accountID})`)
+      }
     } else {
-      data = {
+      const data = {
         accountId: flags['account-id'],
         name: flags.name,
         code: flags.code,
@@ -39,32 +56,32 @@ export default class AccountsUpdate extends BaseCommand {
         taxType: flags['tax-type'],
         enablePaymentsToAccount: flags['enable-payments-to-account'],
       }
-    }
 
-    const parsed = accountUpdateSchema.safeParse(data)
-    if (!parsed.success) {
-      this.error(`Validation errors:\n${formatZodError(parsed.error)}`)
-    }
-
-    const result = await this.xeroCall(flags, async (xero, tenantId) => {
-      const account: Account = {
-        accountID: parsed.data.accountId,
-        name: parsed.data.name,
-        code: parsed.data.code,
-        description: parsed.data.description,
-        status: parsed.data.status as Account['status'],
-        taxType: parsed.data.taxType,
-        enablePaymentsToAccount: parsed.data.enablePaymentsToAccount,
+      const parsed = accountUpdateSchema.safeParse(data)
+      if (!parsed.success) {
+        this.error(`Validation errors:\n${formatZodError(parsed.error)}`)
       }
-      const response = await xero.accountingApi.updateAccount(tenantId, parsed.data.accountId, {accounts: [account]})
-      return response.body.accounts?.[0]
-    })
 
-    if (flags.json) {
-      this.log(JSON.stringify(result, null, 2))
-    } else {
-      const r = result as Record<string, unknown> | undefined
-      this.log(`Account updated: ${r?.name} (${r?.accountID})`)
+      const result = await this.xeroCall(flags, async (xero, tenantId) => {
+        const account: Account = {
+          accountID: parsed.data.accountId,
+          name: parsed.data.name,
+          code: parsed.data.code,
+          description: parsed.data.description,
+          status: parsed.data.status as Account['status'],
+          taxType: parsed.data.taxType,
+          enablePaymentsToAccount: parsed.data.enablePaymentsToAccount,
+        }
+        const response = await xero.accountingApi.updateAccount(tenantId, parsed.data.accountId, {accounts: [account]})
+        return response.body.accounts?.[0]
+      })
+
+      if (flags.json) {
+        this.log(JSON.stringify(result, null, 2))
+      } else {
+        const r = result as Record<string, unknown> | undefined
+        this.log(`Account updated: ${r?.name} (${r?.accountID})`)
+      }
     }
   }
 }

@@ -1,6 +1,6 @@
 import {Flags} from '@oclif/core'
 import {BaseCommand} from '../../base-command.js'
-import {bankTransactionUpdateSchema, formatZodError} from '../../lib/validators.js'
+import {bankTransactionUpdateSchema, bankTransactionFileUpdateSchema, formatZodError} from '../../lib/validators.js'
 import {BankTransaction} from 'xero-node'
 import type {LineItem} from 'xero-node'
 
@@ -24,52 +24,69 @@ export default class BankTransactionsUpdate extends BaseCommand {
   async run(): Promise<void> {
     const {flags} = await this.parse(BankTransactionsUpdate)
 
-    let data: Record<string, unknown>
     if (flags.file) {
-      data = this.readJsonFile(flags.file) as Record<string, unknown>
+      const fileData = this.readJsonFile(flags.file) as Record<string, unknown>
+      const parsed = bankTransactionFileUpdateSchema.safeParse(fileData)
+      if (!parsed.success) {
+        this.error(`Validation errors:\n${formatZodError(parsed.error)}`)
+      }
+
+      const bankTransactionID = parsed.data.bankTransactionID
+
+      const result = await this.xeroCall(flags, async (xero, tenantId) => {
+        const response = await xero.accountingApi.updateBankTransaction(tenantId, bankTransactionID, {bankTransactions: [fileData as unknown as BankTransaction]})
+        return response.body.bankTransactions?.[0]
+      })
+
+      if (flags.json) {
+        this.log(JSON.stringify(result, null, 2))
+      } else {
+        const r = result as Record<string, unknown> | undefined
+        this.log(`Bank transaction updated: ${r?.bankTransactionID}`)
+      }
     } else {
-      data = {
+      const data = {
         bankTransactionId: flags['bank-transaction-id'],
         contactId: flags['contact-id'],
         type: flags.type,
         date: flags.date,
         reference: flags.reference,
       }
-    }
 
-    const parsed = bankTransactionUpdateSchema.safeParse(data)
-    if (!parsed.success) {
-      this.error(`Validation errors:\n${formatZodError(parsed.error)}`)
-    }
-
-    const result = await this.xeroCall(flags, async (xero, tenantId) => {
-      const bankTransaction = {
-        bankTransactionID: parsed.data.bankTransactionId,
-        contact: parsed.data.contactId ? {contactID: parsed.data.contactId} : undefined,
-        type: parsed.data.type ? BankTransaction.TypeEnum[parsed.data.type as keyof typeof BankTransaction.TypeEnum] : undefined,
-        date: parsed.data.date,
-        reference: parsed.data.reference,
-      } as BankTransaction
-
-      if (parsed.data.lineItems) {
-        bankTransaction.lineItems = parsed.data.lineItems.map(li => ({
-          description: li.description,
-          quantity: li.quantity,
-          unitAmount: li.unitAmount,
-          accountCode: li.accountCode,
-          taxType: li.taxType,
-        })) as LineItem[]
+      const parsed = bankTransactionUpdateSchema.safeParse(data)
+      if (!parsed.success) {
+        this.error(`Validation errors:\n${formatZodError(parsed.error)}`)
       }
 
-      const response = await xero.accountingApi.updateBankTransaction(tenantId, parsed.data.bankTransactionId, {bankTransactions: [bankTransaction]})
-      return response.body.bankTransactions?.[0]
-    })
+      const result = await this.xeroCall(flags, async (xero, tenantId) => {
+        const bankTransaction = {
+          bankTransactionID: parsed.data.bankTransactionId,
+          contact: parsed.data.contactId ? {contactID: parsed.data.contactId} : undefined,
+          type: parsed.data.type ? BankTransaction.TypeEnum[parsed.data.type as keyof typeof BankTransaction.TypeEnum] : undefined,
+          date: parsed.data.date,
+          reference: parsed.data.reference,
+        } as BankTransaction
 
-    if (flags.json) {
-      this.log(JSON.stringify(result, null, 2))
-    } else {
-      const r = result as Record<string, unknown> | undefined
-      this.log(`Bank transaction updated: ${r?.bankTransactionID}`)
+        if (parsed.data.lineItems) {
+          bankTransaction.lineItems = parsed.data.lineItems.map(li => ({
+            description: li.description,
+            quantity: li.quantity,
+            unitAmount: li.unitAmount,
+            accountCode: li.accountCode,
+            taxType: li.taxType,
+          })) as LineItem[]
+        }
+
+        const response = await xero.accountingApi.updateBankTransaction(tenantId, parsed.data.bankTransactionId, {bankTransactions: [bankTransaction]})
+        return response.body.bankTransactions?.[0]
+      })
+
+      if (flags.json) {
+        this.log(JSON.stringify(result, null, 2))
+      } else {
+        const r = result as Record<string, unknown> | undefined
+        this.log(`Bank transaction updated: ${r?.bankTransactionID}`)
+      }
     }
   }
 }

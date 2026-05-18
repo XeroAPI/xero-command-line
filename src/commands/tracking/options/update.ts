@@ -1,6 +1,6 @@
 import {Flags} from '@oclif/core'
 import {BaseCommand} from '../../../base-command.js'
-import {trackingOptionsUpdateSchema, formatZodError} from '../../../lib/validators.js'
+import {trackingOptionsFileUpdateSchema, formatZodError} from '../../../lib/validators.js'
 import type {TrackingOption} from 'xero-node'
 
 export default class TrackingOptionsUpdate extends BaseCommand {
@@ -19,12 +19,12 @@ export default class TrackingOptionsUpdate extends BaseCommand {
   async run(): Promise<void> {
     const {flags} = await this.parse(TrackingOptionsUpdate)
 
-    const data = this.readJsonFile(flags.file) as Record<string, unknown>
+    const fileData = this.readJsonFile(flags.file) as Record<string, unknown>
     if (flags['category-id']) {
-      data.trackingCategoryId = flags['category-id']
+      fileData.trackingCategoryId = flags['category-id']
     }
 
-    const parsed = trackingOptionsUpdateSchema.safeParse(data)
+    const parsed = trackingOptionsFileUpdateSchema.safeParse(fileData)
     if (!parsed.success) {
       this.error(`Validation errors:\n${formatZodError(parsed.error)}`)
     }
@@ -34,7 +34,7 @@ export default class TrackingOptionsUpdate extends BaseCommand {
       for (const opt of parsed.data.options) {
         const option: TrackingOption = {
           trackingOptionID: opt.trackingOptionId,
-          name: opt.name,
+          name: opt.name as string | undefined,
           status: opt.status as TrackingOption['status'],
         }
         const response = await xero.accountingApi.updateTrackingOptions(

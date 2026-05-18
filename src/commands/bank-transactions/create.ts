@@ -1,7 +1,8 @@
 import {Flags} from '@oclif/core'
 import {BaseCommand} from '../../base-command.js'
-import {bankTransactionCreateSchema, formatZodError} from '../../lib/validators.js'
+import {bankTransactionCreateSchema, bankTransactionFileCreateSchema, formatZodError} from '../../lib/validators.js'
 import {bankTransactionDeepLink} from '../../lib/deeplinks.js'
+import {ensureContactNested, ensureBankAccountNested} from '../../lib/file-data.js'
 import {BankTransaction} from 'xero-node'
 import type {LineItem} from 'xero-node'
 
@@ -30,11 +31,32 @@ export default class BankTransactionsCreate extends BaseCommand {
   async run(): Promise<void> {
     const {flags} = await this.parse(BankTransactionsCreate)
 
-    let data: Record<string, unknown>
     if (flags.file) {
-      data = this.readJsonFile(flags.file) as Record<string, unknown>
+      const fileData = this.readJsonFile(flags.file) as Record<string, unknown>
+      const parsed = bankTransactionFileCreateSchema.safeParse(fileData)
+      if (!parsed.success) {
+        this.error(`Validation errors:\n${formatZodError(parsed.error)}`)
+      }
+
+      const txData = ensureBankAccountNested(ensureContactNested(fileData)) as unknown as BankTransaction
+
+      const {resource: result, shortCode} = await this.xeroCall(flags, async (xero, tenantId) => {
+        const response = await xero.accountingApi.createBankTransactions(tenantId, {bankTransactions: [txData]})
+        const shortCode = await this.getOrgShortCode(xero, tenantId)
+        return {resource: response.body.bankTransactions?.[0], shortCode}
+      })
+
+      if (flags.json) {
+        this.log(JSON.stringify(result, null, 2))
+      } else {
+        const r = result as Record<string, unknown> | undefined
+        this.log(`Bank transaction created: ${r?.bankTransactionID}`)
+        if (shortCode && r?.bankTransactionID) {
+          this.log(`View in Xero: ${bankTransactionDeepLink(shortCode, r.bankTransactionID as string)}`)
+        }
+      }
     } else {
-      data = {
+      const data = {
         type: flags.type,
         bankAccountId: flags['bank-account-id'],
         contactId: flags['contact-id'],
@@ -48,43 +70,43 @@ export default class BankTransactionsCreate extends BaseCommand {
           taxType: flags['tax-type'],
         }],
       }
-    }
 
-    const parsed = bankTransactionCreateSchema.safeParse(data)
-    if (!parsed.success) {
-      this.error(`Validation errors:\n${formatZodError(parsed.error)}`)
-    }
-
-    const {resource: result, shortCode} = await this.xeroCall(flags, async (xero, tenantId) => {
-      const lineItems: LineItem[] = parsed.data.lineItems.map(li => ({
-        description: li.description,
-        quantity: li.quantity,
-        unitAmount: li.unitAmount,
-        accountCode: li.accountCode,
-        taxType: li.taxType,
-      }))
-
-      const bankTransaction: BankTransaction = {
-        type: BankTransaction.TypeEnum[parsed.data.type as keyof typeof BankTransaction.TypeEnum],
-        bankAccount: {accountID: parsed.data.bankAccountId},
-        contact: {contactID: parsed.data.contactId},
-        lineItems,
-        date: parsed.data.date,
-        reference: parsed.data.reference,
+      const parsed = bankTransactionCreateSchema.safeParse(data)
+      if (!parsed.success) {
+        this.error(`Validation errors:\n${formatZodError(parsed.error)}`)
       }
 
-      const response = await xero.accountingApi.createBankTransactions(tenantId, {bankTransactions: [bankTransaction]})
-      const shortCode = await this.getOrgShortCode(xero, tenantId)
-      return {resource: response.body.bankTransactions?.[0], shortCode}
-    })
+      const {resource: result, shortCode} = await this.xeroCall(flags, async (xero, tenantId) => {
+        const lineItems: LineItem[] = parsed.data.lineItems.map(li => ({
+          description: li.description,
+          quantity: li.quantity,
+          unitAmount: li.unitAmount,
+          accountCode: li.accountCode,
+          taxType: li.taxType,
+        }))
 
-    if (flags.json) {
-      this.log(JSON.stringify(result, null, 2))
-    } else {
-      const r = result as Record<string, unknown> | undefined
-      this.log(`Bank transaction created: ${r?.bankTransactionID}`)
-      if (shortCode && r?.bankTransactionID) {
-        this.log(`View in Xero: ${bankTransactionDeepLink(shortCode, r.bankTransactionID as string)}`)
+        const bankTransaction: BankTransaction = {
+          type: BankTransaction.TypeEnum[parsed.data.type as keyof typeof BankTransaction.TypeEnum],
+          bankAccount: {accountID: parsed.data.bankAccountId},
+          contact: {contactID: parsed.data.contactId},
+          lineItems,
+          date: parsed.data.date,
+          reference: parsed.data.reference,
+        }
+
+        const response = await xero.accountingApi.createBankTransactions(tenantId, {bankTransactions: [bankTransaction]})
+        const shortCode = await this.getOrgShortCode(xero, tenantId)
+        return {resource: response.body.bankTransactions?.[0], shortCode}
+      })
+
+      if (flags.json) {
+        this.log(JSON.stringify(result, null, 2))
+      } else {
+        const r = result as Record<string, unknown> | undefined
+        this.log(`Bank transaction created: ${r?.bankTransactionID}`)
+        if (shortCode && r?.bankTransactionID) {
+          this.log(`View in Xero: ${bankTransactionDeepLink(shortCode, r.bankTransactionID as string)}`)
+        }
       }
     }
   }
