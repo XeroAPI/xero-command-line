@@ -24,7 +24,7 @@ You have access to the `xero` CLI — a command-line tool for the Xero accountin
 
 ## Authentication & Setup
 
-**Note for Agent:** If the user is not logged in, you must instruct them to run `xero login` in their terminal manually, as it requires a browser-based OAuth flow that you cannot complete.
+**Note for Agent:** If the user is not logged in, you must instruct them to run `xero login` in their terminal manually, as it requires a browser-based OAuth flow that you cannot complete. If login fails with `unauthorized_client` or scope-related errors — common for new Xero apps after the March 2026 scope migration, or when the app only grants read scopes — instruct them to re-login with `--scope` listing only the scopes enabled on their app (see [OAuth scopes](#oauth-scopes) below).
 
 ```bash
 # Check if logged in / check organization details
@@ -62,7 +62,23 @@ Every API command supports these flags:
 | `--json` | Output raw JSON (useful for piping to `jq` or further processing) |
 | `--csv` | Output as CSV |
 
-Environment variables `XERO_PROFILE` and `XERO_CLIENT_ID` are also recognised.
+Environment variables `XERO_PROFILE` and `XERO_CLIENT_ID` are also recognised. The `xero login` command additionally accepts `XERO_SCOPES`.
+
+## OAuth scopes
+
+By default, `xero login` requests broad read/write scopes. Override with `--scope` (space-separated API scopes) or `XERO_SCOPES` when the user's Xero wants to grant a narrower set — e.g. read-only dashboards. 
+
+API credentials created before Xero's March 2026 scope changes where deprecated broader scopes like `accounting.transactions` and `accounting.reports` are available until September 2027 may request those scopes via the `--scope` override as well. `xero login` will request the granular scopes that replaced these deprecated broader scopes by default.
+
+Required scopes (`openid`, `profile`, `email`, `offline_access`) are prepended automatically. Users only pass Xero API scopes. Re-login is required after changing scopes.
+
+```bash
+# Read-only example (adjust to match scopes enabled on the user's app)
+xero login --scope "accounting.contacts.read accounting.settings.read accounting.invoices.read accounting.payments.read accounting.banktransactions.read accounting.manualjournals.read accounting.reports.balancesheet.read accounting.reports.profitandloss.read accounting.reports.trialbalance.read accounting.reports.aged.read accounting.budgets.read accounting.attachments.read"
+
+# Or via environment variable
+XERO_SCOPES="accounting.invoices.read accounting.contacts.read" xero login
+```
 
 ## Auth & profiles
 
@@ -70,6 +86,7 @@ Environment variables `XERO_PROFILE` and `XERO_CLIENT_ID` are also recognised.
 # Log in (opens browser for OAuth consent)
 xero login
 xero login -p my-profile
+xero login --scope "accounting.contacts.read accounting.invoices.read"
 
 # Log out
 xero logout

@@ -2,7 +2,7 @@
 
 A command-line tool for the Xero API using PKCE OAuth. Authenticates via browser-based login — no client secret required. Supports multiple Xero organisations via named profiles.
 
-> **Alpha** (v0.0.1) — APIs may change.
+> **Alpha** (v0.0.4) — APIs may change.
 
 ## Install
 
@@ -57,6 +57,25 @@ This opens your browser for Xero's OAuth consent flow. After you authorize, the 
 
 Tokens are encrypted (AES-256-GCM) and cached at `~/.config/xero-command-line/tokens.json`. The encryption key is stored in the OS keychain. Tokens refresh automatically when expired.
 
+### OAuth scopes
+
+By default, `xero login` requests a broad set of scopes suitable for full read/write CLI usage. To request a narrower scope set — for example a read-only integration — pass `--scope` with a space-separated list of API scopes:
+
+```bash
+xero login --scope "accounting.contacts.read accounting.settings.read accounting.invoices.read accounting.payments.read accounting.banktransactions.read accounting.manualjournals.read accounting.reports.balancesheet.read accounting.reports.profitandloss.read accounting.reports.trialbalance.read accounting.reports.aged.read accounting.budgets.read accounting.attachments.read"
+```
+
+Or set the `XERO_SCOPES` environment variable (same space-separated format):
+
+```bash
+XERO_SCOPES="accounting.invoices.read accounting.contacts.read" xero login
+```
+API credentials created before [Xero's March 2026 scope changes](https://developer.xero.com/faq/granular-scopes) where deprecated broader scopes like `accounting.transactions` and `accounting.reports` are available until September 2027 may request those scopes via the `--scope` override as well. `xero login` will request the granular scopes that replaced these deprecated broader scopes by default.
+
+Required OAuth scopes (`openid`, `profile`, `email`, `offline_access`) are always prepended automatically — you only need to list the Xero API scopes your app supports. If you omit `--scope`, behaviour is unchanged from previous releases.
+
+Re-run `xero login` (with or without `--scope`) whenever you change scopes; existing tokens retain the scopes granted at login time.
+
 ## Global Flags
 
 Every command that calls the Xero API supports:
@@ -69,7 +88,7 @@ Every command that calls the Xero API supports:
 | `--csv` | Output as CSV |
 | `--toon` | Output as [TOON](https://github.com/toon-format/toon) (compact, LLM-friendly) |
 
-Environment variables `XERO_PROFILE` and `XERO_CLIENT_ID` are also supported.
+Environment variables `XERO_PROFILE` and `XERO_CLIENT_ID` are also supported. The `xero login` command additionally accepts `XERO_SCOPES` (see [OAuth scopes](#oauth-scopes) above).
 
 ## Finding IDs
 
