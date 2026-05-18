@@ -205,6 +205,85 @@ export const trackingOptionsUpdateSchema = z.object({
   })).min(1).max(10),
 })
 
+// File-mode passthrough schemas: validate only minimum required fields,
+// then forward the entire file payload untouched to the Xero API.
+export const contactFileCreateSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+}).passthrough()
+
+export const contactFileUpdateSchema = z.object({
+  contactID: z.string().min(1, 'Contact ID is required'),
+}).passthrough()
+
+export const invoiceFileCreateSchema = z.object({
+  type: z.enum(['ACCREC', 'ACCPAY']),
+  lineItems: z.array(z.object({}).passthrough()).min(1, 'At least one line item is required'),
+}).passthrough()
+
+export const invoiceFileUpdateSchema = z.object({
+  invoiceID: z.string().min(1, 'Invoice ID is required'),
+}).passthrough()
+
+export const quoteFileCreateSchema = z.object({
+  lineItems: z.array(z.object({}).passthrough()).min(1, 'At least one line item is required'),
+}).passthrough()
+
+export const quoteFileUpdateSchema = z.object({
+  quoteID: z.string().min(1, 'Quote ID is required'),
+}).passthrough()
+
+export const bankTransactionFileCreateSchema = z.object({
+  type: z.enum(['RECEIVE', 'SPEND']),
+  lineItems: z.array(z.object({}).passthrough()).min(1, 'At least one line item is required'),
+}).passthrough()
+
+export const bankTransactionFileUpdateSchema = z.object({
+  bankTransactionID: z.string().min(1, 'Bank transaction ID is required'),
+}).passthrough()
+
+export const creditNoteFileCreateSchema = z.object({
+  lineItems: z.array(z.object({}).passthrough()).min(1, 'At least one line item is required'),
+}).passthrough()
+
+export const creditNoteFileUpdateSchema = z.object({
+  creditNoteID: z.string().min(1, 'Credit note ID is required'),
+}).passthrough()
+
+export const paymentFileCreateSchema = z.object({
+  amount: z.number().positive('Amount must be positive'),
+}).passthrough()
+
+export const itemFileCreateSchema = z.object({
+  code: z.string().min(1, 'Code is required'),
+  name: z.string().min(1, 'Name is required'),
+}).passthrough()
+
+export const itemFileUpdateSchema = z.object({
+  itemID: z.string().min(1, 'Item ID is required'),
+}).passthrough()
+
+export const accountFileUpdateSchema = z.object({
+  accountID: z.string().min(1, 'Account ID is required'),
+}).passthrough()
+
+export const journalFileCreateSchema = z.object({
+  narration: z.string().min(1, 'Narration is required'),
+  journalLines: z.array(z.object({}).passthrough()).min(2, 'At least two journal lines are required'),
+}).passthrough()
+
+export const journalFileUpdateSchema = z.object({
+  manualJournalID: z.string().min(1, 'Manual journal ID is required'),
+  narration: z.string().min(1, 'Narration is required'),
+  journalLines: z.array(z.object({}).passthrough()).min(2, 'At least two journal lines are required'),
+}).passthrough()
+
+export const trackingOptionsFileUpdateSchema = z.object({
+  trackingCategoryId: z.string().min(1, 'Tracking category ID is required'),
+  options: z.array(z.object({
+    trackingOptionId: z.string().min(1),
+  }).passthrough()).min(1).max(10),
+}).passthrough()
+
 export function formatZodError(error: z.ZodError): string {
   return error.issues
     .map(issue => `  ${issue.path.join('.')}: ${issue.message}`)

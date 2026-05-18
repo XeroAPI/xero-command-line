@@ -1,6 +1,6 @@
 import {Flags} from '@oclif/core'
 import {BaseCommand} from '../../base-command.js'
-import {quoteUpdateSchema, formatZodError} from '../../lib/validators.js'
+import {quoteUpdateSchema, quoteFileUpdateSchema, formatZodError} from '../../lib/validators.js'
 import type {Quote, LineItem} from 'xero-node'
 
 export default class QuotesUpdate extends BaseCommand {
@@ -26,11 +26,28 @@ export default class QuotesUpdate extends BaseCommand {
   async run(): Promise<void> {
     const {flags} = await this.parse(QuotesUpdate)
 
-    let data: Record<string, unknown>
     if (flags.file) {
-      data = this.readJsonFile(flags.file) as Record<string, unknown>
+      const fileData = this.readJsonFile(flags.file) as Record<string, unknown>
+      const parsed = quoteFileUpdateSchema.safeParse(fileData)
+      if (!parsed.success) {
+        this.error(`Validation errors:\n${formatZodError(parsed.error)}`)
+      }
+
+      const quoteID = parsed.data.quoteID
+
+      const result = await this.xeroCall(flags, async (xero, tenantId) => {
+        const response = await xero.accountingApi.updateQuote(tenantId, quoteID, {quotes: [fileData as Quote]})
+        return response.body.quotes?.[0]
+      })
+
+      if (flags.json) {
+        this.log(JSON.stringify(result, null, 2))
+      } else {
+        const r = result as Record<string, unknown> | undefined
+        this.log(`Quote updated: ${r?.quoteNumber} (${r?.quoteID})`)
+      }
     } else {
-      data = {
+      const data = {
         quoteId: flags['quote-id'],
         contactId: flags['contact-id'],
         title: flags.title,
@@ -40,45 +57,45 @@ export default class QuotesUpdate extends BaseCommand {
         date: flags.date,
         expiryDate: flags['expiry-date'],
       }
-    }
 
-    const parsed = quoteUpdateSchema.safeParse(data)
-    if (!parsed.success) {
-      this.error(`Validation errors:\n${formatZodError(parsed.error)}`)
-    }
-
-    const result = await this.xeroCall(flags, async (xero, tenantId) => {
-      const quote: Quote = {
-        quoteID: parsed.data.quoteId,
-        contact: parsed.data.contactId ? {contactID: parsed.data.contactId} : undefined,
-        title: parsed.data.title,
-        summary: parsed.data.summary,
-        terms: parsed.data.terms,
-        reference: parsed.data.reference,
-        date: parsed.data.date,
-        expiryDate: parsed.data.expiryDate,
-        quoteNumber: parsed.data.quoteNumber,
+      const parsed = quoteUpdateSchema.safeParse(data)
+      if (!parsed.success) {
+        this.error(`Validation errors:\n${formatZodError(parsed.error)}`)
       }
 
-      if (parsed.data.lineItems) {
-        quote.lineItems = parsed.data.lineItems.map(li => ({
-          description: li.description,
-          quantity: li.quantity,
-          unitAmount: li.unitAmount,
-          accountCode: li.accountCode,
-          taxType: li.taxType,
-        })) as LineItem[]
+      const result = await this.xeroCall(flags, async (xero, tenantId) => {
+        const quote: Quote = {
+          quoteID: parsed.data.quoteId,
+          contact: parsed.data.contactId ? {contactID: parsed.data.contactId} : undefined,
+          title: parsed.data.title,
+          summary: parsed.data.summary,
+          terms: parsed.data.terms,
+          reference: parsed.data.reference,
+          date: parsed.data.date,
+          expiryDate: parsed.data.expiryDate,
+          quoteNumber: parsed.data.quoteNumber,
+        }
+
+        if (parsed.data.lineItems) {
+          quote.lineItems = parsed.data.lineItems.map(li => ({
+            description: li.description,
+            quantity: li.quantity,
+            unitAmount: li.unitAmount,
+            accountCode: li.accountCode,
+            taxType: li.taxType,
+          })) as LineItem[]
+        }
+
+        const response = await xero.accountingApi.updateQuote(tenantId, parsed.data.quoteId, {quotes: [quote]})
+        return response.body.quotes?.[0]
+      })
+
+      if (flags.json) {
+        this.log(JSON.stringify(result, null, 2))
+      } else {
+        const r = result as Record<string, unknown> | undefined
+        this.log(`Quote updated: ${r?.quoteNumber} (${r?.quoteID})`)
       }
-
-      const response = await xero.accountingApi.updateQuote(tenantId, parsed.data.quoteId, {quotes: [quote]})
-      return response.body.quotes?.[0]
-    })
-
-    if (flags.json) {
-      this.log(JSON.stringify(result, null, 2))
-    } else {
-      const r = result as Record<string, unknown> | undefined
-      this.log(`Quote updated: ${r?.quoteNumber} (${r?.quoteID})`)
     }
   }
 }

@@ -1,7 +1,8 @@
 import {Flags} from '@oclif/core'
 import {BaseCommand} from '../../base-command.js'
-import {quoteCreateSchema, formatZodError} from '../../lib/validators.js'
+import {quoteCreateSchema, quoteFileCreateSchema, formatZodError} from '../../lib/validators.js'
 import {quoteDeepLink} from '../../lib/deeplinks.js'
+import {ensureContactNested} from '../../lib/file-data.js'
 import type {Quote, LineItem} from 'xero-node'
 
 export default class QuotesCreate extends BaseCommand {
@@ -30,11 +31,32 @@ export default class QuotesCreate extends BaseCommand {
   async run(): Promise<void> {
     const {flags} = await this.parse(QuotesCreate)
 
-    let data: Record<string, unknown>
     if (flags.file) {
-      data = this.readJsonFile(flags.file) as Record<string, unknown>
+      const fileData = this.readJsonFile(flags.file) as Record<string, unknown>
+      const parsed = quoteFileCreateSchema.safeParse(fileData)
+      if (!parsed.success) {
+        this.error(`Validation errors:\n${formatZodError(parsed.error)}`)
+      }
+
+      const quoteData = ensureContactNested(fileData) as Quote
+
+      const {resource: result, shortCode} = await this.xeroCall(flags, async (xero, tenantId) => {
+        const response = await xero.accountingApi.createQuotes(tenantId, {quotes: [quoteData]})
+        const shortCode = await this.getOrgShortCode(xero, tenantId)
+        return {resource: response.body.quotes?.[0], shortCode}
+      })
+
+      if (flags.json) {
+        this.log(JSON.stringify(result, null, 2))
+      } else {
+        const r = result as Record<string, unknown> | undefined
+        this.log(`Quote created: ${r?.quoteNumber} (${r?.quoteID})`)
+        if (shortCode && r?.quoteID) {
+          this.log(`View in Xero: ${quoteDeepLink(shortCode, r.quoteID as string)}`)
+        }
+      }
     } else {
-      data = {
+      const data = {
         contactId: flags['contact-id'],
         title: flags.title,
         summary: flags.summary,
@@ -49,45 +71,45 @@ export default class QuotesCreate extends BaseCommand {
           taxType: flags['tax-type'],
         }],
       }
-    }
 
-    const parsed = quoteCreateSchema.safeParse(data)
-    if (!parsed.success) {
-      this.error(`Validation errors:\n${formatZodError(parsed.error)}`)
-    }
-
-    const {resource: result, shortCode} = await this.xeroCall(flags, async (xero, tenantId) => {
-      const lineItems: LineItem[] = parsed.data.lineItems.map(li => ({
-        description: li.description,
-        quantity: li.quantity,
-        unitAmount: li.unitAmount,
-        accountCode: li.accountCode,
-        taxType: li.taxType,
-      }))
-
-      const quote: Quote = {
-        contact: {contactID: parsed.data.contactId},
-        lineItems,
-        title: parsed.data.title,
-        summary: parsed.data.summary,
-        terms: parsed.data.terms,
-        reference: parsed.data.reference,
-        quoteNumber: parsed.data.quoteNumber,
-        date: parsed.data.date,
+      const parsed = quoteCreateSchema.safeParse(data)
+      if (!parsed.success) {
+        this.error(`Validation errors:\n${formatZodError(parsed.error)}`)
       }
 
-      const response = await xero.accountingApi.createQuotes(tenantId, {quotes: [quote]})
-      const shortCode = await this.getOrgShortCode(xero, tenantId)
-      return {resource: response.body.quotes?.[0], shortCode}
-    })
+      const {resource: result, shortCode} = await this.xeroCall(flags, async (xero, tenantId) => {
+        const lineItems: LineItem[] = parsed.data.lineItems.map(li => ({
+          description: li.description,
+          quantity: li.quantity,
+          unitAmount: li.unitAmount,
+          accountCode: li.accountCode,
+          taxType: li.taxType,
+        }))
 
-    if (flags.json) {
-      this.log(JSON.stringify(result, null, 2))
-    } else {
-      const r = result as Record<string, unknown> | undefined
-      this.log(`Quote created: ${r?.quoteNumber} (${r?.quoteID})`)
-      if (shortCode && r?.quoteID) {
-        this.log(`View in Xero: ${quoteDeepLink(shortCode, r.quoteID as string)}`)
+        const quote: Quote = {
+          contact: {contactID: parsed.data.contactId},
+          lineItems,
+          title: parsed.data.title,
+          summary: parsed.data.summary,
+          terms: parsed.data.terms,
+          reference: parsed.data.reference,
+          quoteNumber: parsed.data.quoteNumber,
+          date: parsed.data.date,
+        }
+
+        const response = await xero.accountingApi.createQuotes(tenantId, {quotes: [quote]})
+        const shortCode = await this.getOrgShortCode(xero, tenantId)
+        return {resource: response.body.quotes?.[0], shortCode}
+      })
+
+      if (flags.json) {
+        this.log(JSON.stringify(result, null, 2))
+      } else {
+        const r = result as Record<string, unknown> | undefined
+        this.log(`Quote created: ${r?.quoteNumber} (${r?.quoteID})`)
+        if (shortCode && r?.quoteID) {
+          this.log(`View in Xero: ${quoteDeepLink(shortCode, r.quoteID as string)}`)
+        }
       }
     }
   }
