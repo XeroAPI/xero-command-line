@@ -31,6 +31,20 @@ You have access to the `xero` CLI — a command-line tool for the Xero accountin
 xero org details
 ```
 
+### Token storage (Linux / WSL / SSH)
+
+Tokens are encrypted in `~/.config/xero-command-line/tokens.json`. The encryption key normally lives in the OS keychain; on Linux that requires a **secret service** (e.g. GNOME Keyring over D-Bus).
+
+**If the user is on WSL, SSH, or a headless VM** and sees “Not logged in” after a successful `xero login`, or an encryption-key error:
+
+1. Prefer fixing the keychain: `sudo apt install gnome-keyring libsecret-tools dbus-x11`, start `gnome-keyring-daemon`, then `xero login` again.
+2. Or suggest `export XERO_KEY_STORAGE=file` before `xero login` (file key at `~/.config/xero-command-line/.encryption-key`, mode 0600).
+3. For a **stronger** file-based option: `export XERO_TOKEN_PASSPHRASE='…'` (same value every session) before `xero login` — key is scrypt-derived, not stored in plaintext.
+
+Warn if `XERO_PROFILE`, `XERO_CLIENT_ID`, `XERO_KEY_STORAGE`, or `XERO_TOKEN_PASSPHRASE` are set — they change which profile or storage backend is used. Check with `echo $XERO_PROFILE $XERO_CLIENT_ID $XERO_KEY_STORAGE`.
+
+The CLI does **not** wipe `tokens.json` when decryption fails; instruct re-login only after the user confirms.
+
 ## IMPORTANT: Profile and identity verification
 
 Before executing **any** commands (including read-only operations), you **must** verify which Xero organisation is active:
@@ -62,7 +76,7 @@ Every API command supports these flags:
 | `--json` | Output raw JSON (useful for piping to `jq` or further processing) |
 | `--csv` | Output as CSV |
 
-Environment variables `XERO_PROFILE` and `XERO_CLIENT_ID` are also recognised. The `xero login` command additionally accepts `XERO_SCOPES`.
+Environment variables `XERO_PROFILE`, `XERO_CLIENT_ID`, `XERO_KEY_STORAGE`, and `XERO_TOKEN_PASSPHRASE` are also recognised. The `xero login` command additionally accepts `XERO_SCOPES`. See [Token storage (Linux / WSL / SSH)](#token-storage-linux--wsl--ssh).
 
 ## OAuth scopes
 
