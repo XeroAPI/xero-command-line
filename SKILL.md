@@ -33,15 +33,16 @@ xero org details
 
 ### Token storage (Linux / WSL / SSH)
 
-Tokens are encrypted in `~/.config/xero-command-line/tokens.json`. The encryption key normally lives in the OS keychain; on Linux that requires a **secret service** (e.g. GNOME Keyring over D-Bus).
+Tokens are encrypted in `~/.config/xero-command-line/tokens.json`. By default the encryption key lives **only** in the OS keychain (on Linux: GNOME Keyring / Secret Service over D-Bus). A file copy is **not** written unless the user opts in.
 
-**If the user is on WSL, SSH, or a headless VM** and sees “Not logged in” after a successful `xero login`, or an encryption-key error:
+**If the user is on WSL, SSH, or a headless VM** and sees an encryption-key error after a successful `xero login`:
 
-1. Prefer fixing the keychain: `sudo apt install gnome-keyring libsecret-tools dbus-x11`, start `gnome-keyring-daemon`, then `xero login` again.
-2. Or suggest `export XERO_KEY_STORAGE=file` before `xero login` (file key at `~/.config/xero-command-line/.encryption-key`, mode 0600).
-3. For a **stronger** file-based option: `export XERO_TOKEN_PASSPHRASE='…'` (same value every session) before `xero login` — key is scrypt-derived, not stored in plaintext.
+1. **Prefer fixing the keychain:** `sudo apt install gnome-keyring libsecret-tools dbus-x11`, start `gnome-keyring-daemon`, then `xero login` again.
+2. **Flaky keychain** (login OK, next command fails): `export XERO_KEYRING_FILE_BACKUP=1` before `xero login` — mirrors the key to `~/.config/xero-command-line/.encryption-key` (0600) for later reads. Opt-in; weaker than keychain-only.
+3. **No keychain:** `export XERO_KEY_STORAGE=file` before `xero login`.
+4. **Stronger file-based option:** `export XERO_TOKEN_PASSPHRASE='…'` (same value every session) — scrypt-derived key, not stored in plaintext.
 
-Warn if `XERO_PROFILE`, `XERO_CLIENT_ID`, `XERO_KEY_STORAGE`, or `XERO_TOKEN_PASSPHRASE` are set — they change which profile or storage backend is used. Check with `echo $XERO_PROFILE $XERO_CLIENT_ID $XERO_KEY_STORAGE`.
+Warn if `XERO_PROFILE`, `XERO_CLIENT_ID`, `XERO_KEY_STORAGE`, `XERO_KEYRING_FILE_BACKUP`, or `XERO_TOKEN_PASSPHRASE` are set — they change profile or how keys are stored. Check with `echo $XERO_PROFILE $XERO_CLIENT_ID $XERO_KEY_STORAGE $XERO_KEYRING_FILE_BACKUP`.
 
 The CLI does **not** wipe `tokens.json` when decryption fails; instruct re-login only after the user confirms.
 
@@ -76,7 +77,7 @@ Every API command supports these flags:
 | `--json` | Output raw JSON (useful for piping to `jq` or further processing) |
 | `--csv` | Output as CSV |
 
-Environment variables `XERO_PROFILE`, `XERO_CLIENT_ID`, `XERO_KEY_STORAGE`, and `XERO_TOKEN_PASSPHRASE` are also recognised. The `xero login` command additionally accepts `XERO_SCOPES`. See [Token storage (Linux / WSL / SSH)](#token-storage-linux--wsl--ssh).
+Environment variables `XERO_PROFILE`, `XERO_CLIENT_ID`, `XERO_KEY_STORAGE`, `XERO_KEYRING_FILE_BACKUP`, and `XERO_TOKEN_PASSPHRASE` are also recognised. The `xero login` command additionally accepts `XERO_SCOPES`. See [Token storage (Linux / WSL / SSH)](#token-storage-linux--wsl--ssh).
 
 ## OAuth scopes
 

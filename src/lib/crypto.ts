@@ -22,8 +22,14 @@ const PASSPHRASE_SALT_PATH = join(CONFIG_DIR, '.encryption-key.salt')
 export const PASSPHRASE_ENV = 'XERO_TOKEN_PASSPHRASE'
 
 /**
+ * Mirror the encryption key to ~/.config/xero-command-line/.encryption-key when the
+ * OS keychain accepts a write. Opt-in — see FILE_BACKUP_ENV. Off by default.
+ */
+export const FILE_BACKUP_ENV = 'XERO_KEYRING_FILE_BACKUP'
+
+/**
  * Control where the encryption key is stored.
- * - auto (default): OS keychain, with a file backup when the keychain accepts a write
+ * - auto (default): OS keychain only; optional file backup via FILE_BACKUP_ENV
  * - keyring: OS keychain only
  * - file: ~/.config/xero-command-line/.encryption-key only
  */
@@ -56,6 +62,11 @@ export function resolveKeyStorageMode(): KeyStorageMode {
   return 'auto'
 }
 
+export function isFileBackupEnabled(): boolean {
+  const value = process.env[FILE_BACKUP_ENV]?.toLowerCase()
+  return value === '1' || value === 'true' || value === 'yes'
+}
+
 export function hasEncryptedTokens(): boolean {
   const tokenPath = join(CONFIG_DIR, 'tokens.json')
   if (!existsSync(tokenPath)) return false
@@ -69,7 +80,7 @@ export function hasEncryptedTokens(): boolean {
 
 /**
  * Get or create the AES-256 encryption key.
- * Priority: passphrase (env) → OS keychain → file backup → create new (keyring and/or file).
+ * Priority: passphrase (env) → OS keychain → optional file backup → create new (keyring and/or file).
  */
 export async function getOrCreateKey(): Promise<Buffer> {
   const passphrase = process.env[PASSPHRASE_ENV]
@@ -83,7 +94,7 @@ export async function getOrCreateKey(): Promise<Buffer> {
 
   if (hasEncryptedTokens()) {
     throw new EncryptionKeyError(
-      'Could not read the encryption key for cached tokens. On Linux/WSL/SSH this usually means the secret service (e.g. GNOME Keyring) is unavailable in this session. Install and start gnome-keyring, set XERO_KEY_STORAGE=file for a file-only key, or set XERO_TOKEN_PASSPHRASE and run "xero login" again. See README: Token storage.',
+      'Could not read the encryption key for cached tokens. On Linux/WSL/SSH this usually means the secret service (e.g. GNOME Keyring) is unavailable in this session. Install and start gnome-keyring, set XERO_KEYRING_FILE_BACKUP=1 (if the keychain is flaky), XERO_KEY_STORAGE=file, or XERO_TOKEN_PASSPHRASE and run "xero login" again. See README: Token storage.',
     )
   }
 
@@ -155,21 +166,28 @@ async function loadStoredKey(mode: KeyStorageMode): Promise<Buffer | null> {
   const fromKeyring = await tryKeyringGet()
   if (fromKeyring) return Buffer.from(fromKeyring, 'base64')
 
-  if (mode === 'keyring') return null
+  if (mode === 'keyring' || !isFileBackupEnabled()) return null
 
-  // auto: use file backup when keychain read fails (common on WSL/SSH)
+  // auto + opt-in backup: read file when keychain read fails (common on WSL/SSH)
   return readFileKey()
 }
 
 async function persistNewKey(key: Buffer, mode: KeyStorageMode): Promise<void> {
   const encoded = key.toString('base64')
   const keyringOk = mode !== 'file' && (await tryKeyringSet(encoded))
-  const fileOk = mode !== 'keyring' && writeFileKey(encoded)
+
+  let fileOk = false
+  if (mode === 'file') {
+    fileOk = writeFileKey(encoded)
+  } else if (!keyringOk) {
+    // Keychain unavailable — persist to file so login can succeed in auto mode
+    fileOk = writeFileKey(encoded)
+  }
 
   if (keyringOk || fileOk) return
 
   throw new EncryptionKeyError(
-    'Could not store the encryption key. On Linux/WSL install gnome-keyring and libsecret, or set XERO_KEY_STORAGE=file or XERO_TOKEN_PASSPHRASE. See README: Token storage.',
+    'Could not store the encryption key. On Linux/WSL install gnome-keyring and libsecret, or set XERO_KEY_STORAGE=file, XERO_KEYRING_FILE_BACKUP=1, or XERO_TOKEN_PASSPHRASE. See README: Token storage.',
   )
 }
 
@@ -208,8 +226,7 @@ async function tryKeyringSet(value: string): Promise<boolean> {
     const {Entry} = await import('@napi-rs/keyring')
     const entry = new Entry(KEYRING_SERVICE, KEYRING_ACCOUNT)
     entry.setPassword(value)
-    // In auto mode, mirror to file so flaky keyring reads (WSL/SSH) can still decrypt tokens.
-    if (resolveKeyStorageMode() === 'auto') {
+    if (resolveKeyStorageMode() === 'auto' && isFileBackupEnabled()) {
       writeFileKey(value)
     }
     return true

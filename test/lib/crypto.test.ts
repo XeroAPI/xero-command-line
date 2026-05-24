@@ -38,6 +38,7 @@ const {
   CONFIG_DIR,
   PASSPHRASE_ENV,
   KEY_STORAGE_ENV,
+  FILE_BACKUP_ENV,
 } = await import('../../src/lib/crypto.js')
 
 const FILE_KEY_PATH = join(CONFIG_DIR, '.encryption-key')
@@ -47,6 +48,7 @@ describe('crypto key storage', () => {
   beforeEach(async () => {
     delete process.env[PASSPHRASE_ENV]
     delete process.env[KEY_STORAGE_ENV]
+    delete process.env[FILE_BACKUP_ENV]
     mkdirSync(CONFIG_DIR, {recursive: true})
     const {Entry} = await import('@napi-rs/keyring')
     Entry.store = null
@@ -56,19 +58,42 @@ describe('crypto key storage', () => {
     rmSync(TEST_DIR, {recursive: true, force: true})
   })
 
-  it('creates and reads a key from the file fallback when keyring is empty', async () => {
+  it('stores key in keyring only by default (no file backup)', async () => {
     const key = await getOrCreateKey()
-    expect(existsSync(FILE_KEY_PATH)).toBe(true)
+    expect(existsSync(FILE_KEY_PATH)).toBe(false)
+    const {Entry} = await import('@napi-rs/keyring')
+    expect(Entry.store).toBe(key.toString('base64'))
     const roundTrip = encrypt('secret', key)
     expect(decrypt(roundTrip, key)).toBe('secret')
   })
 
-  it('reads file backup when keyring returns null but file exists', async () => {
+  it('writes file backup when XERO_KEYRING_FILE_BACKUP is enabled', async () => {
+    process.env[FILE_BACKUP_ENV] = '1'
+    await getOrCreateKey()
+    expect(existsSync(FILE_KEY_PATH)).toBe(true)
+    const {Entry} = await import('@napi-rs/keyring')
+    expect(Entry.store).not.toBeNull()
+  })
+
+  it('reads file backup when keyring is empty and backup is enabled', async () => {
+    process.env[FILE_BACKUP_ENV] = '1'
     const first = await getOrCreateKey()
     const {Entry} = await import('@napi-rs/keyring')
     Entry.store = null
     const second = await getOrCreateKey()
     expect(second.equals(first)).toBe(true)
+  })
+
+  it('does not read file backup when backup is disabled', async () => {
+    process.env[FILE_BACKUP_ENV] = '1'
+    await getOrCreateKey()
+    const {Entry} = await import('@napi-rs/keyring')
+    Entry.store = null
+    delete process.env[FILE_BACKUP_ENV]
+    writeFileSync(TOKEN_PATH, JSON.stringify({regan: {accessToken: 'x', refreshToken: 'y', expiresAt: 0, tenantId: 't'}}), {
+      mode: 0o600,
+    })
+    await expect(getOrCreateKey()).rejects.toBeInstanceOf(EncryptionKeyError)
   })
 
   it('throws instead of creating a new key when tokens exist but no key is found', async () => {

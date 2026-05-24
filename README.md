@@ -59,18 +59,24 @@ Tokens are encrypted (AES-256-GCM) and cached at `~/.config/xero-command-line/to
 
 ### Token storage
 
-The CLI encrypts OAuth tokens at rest. Where the encryption key lives, from most to least secure:
+The CLI encrypts OAuth tokens at rest in `~/.config/xero-command-line/tokens.json`. Where the **encryption key** is stored, from most to least secure:
 
-1. **OS keychain (default)** — macOS Keychain, Windows Credential Manager, or Linux Secret Service (GNOME Keyring / KWallet via D-Bus). This is the recommended option on desktop systems.
+1. **OS keychain (default in `auto` mode)** — macOS Keychain, Windows Credential Manager, or Linux Secret Service (GNOME Keyring / KWallet via D-Bus). Recommended on desktop systems. No encryption key file is written unless you opt in below.
 2. **`XERO_TOKEN_PASSPHRASE`** — Derives the key with scrypt from your passphrase and a local salt file. The raw key is not stored on disk. Set the same value before `xero login` and every later command. Stronger than a file-stored key if you accept managing a secret env var.
-3. **File backup (automatic in `auto` mode)** — When the keychain accepts a new key, a copy is also written to `~/.config/xero-command-line/.encryption-key` (mode `0600`). If a later command cannot read the keychain (common on **WSL**, **SSH**, or **headless** Linux), the CLI uses this file instead of failing or wiping tokens.
-4. **`XERO_KEY_STORAGE=file`** — Use only the file key (skip the keychain). Useful on WSL when the secret service is unreliable; slightly weaker than keychain-only because any process running as your user can read the key file.
+3. **`XERO_KEYRING_FILE_BACKUP=1` (opt-in)** — When the keychain accepts a new key, also writes a copy to `~/.config/xero-command-line/.encryption-key` (mode `0600`). If a later command cannot read the keychain (common on **WSL**, **SSH**, or **headless** Linux), the CLI reads this file instead. **Off by default** so macOS/Windows/Linux desktops keep the key keychain-only. Enable only when the keychain is installed but reads are unreliable.
+4. **`XERO_KEY_STORAGE=file`** — Store the key only in `.encryption-key` (skip the keychain). Use when no secret service is available; weaker than keychain-only because any process running as your user can read the key file.
 
-`XERO_KEY_STORAGE` values: `auto` (default), `keyring`, `file`.
+| Variable | Values | Default |
+|----------|--------|---------|
+| `XERO_KEY_STORAGE` | `auto`, `keyring`, `file` | `auto` |
+| `XERO_KEYRING_FILE_BACKUP` | `1`, `true`, `yes` | off |
+| `XERO_TOKEN_PASSPHRASE` | your passphrase | off |
 
-On Linux, WSL, or SSH, if login works once and later commands say “Not logged in”, the secret service was likely unavailable in that shell. The CLI no longer deletes `tokens.json` on decrypt errors — you will get an explicit message instead.
+In `auto` mode without file backup, if the keychain is completely unavailable at login, the CLI still writes `.encryption-key` once so login can succeed — same as a file-only fallback for that session.
 
-**WSL / headless Linux (recommended keychain setup):**
+On Linux, WSL, or SSH, if login works once and later commands fail with an encryption-key error, the secret service was likely unavailable in that shell. The CLI does **not** delete `tokens.json` on decrypt errors.
+
+**WSL / headless Linux (recommended: fix the keychain):**
 
 ```bash
 sudo apt install -y gnome-keyring libsecret-1-0 libsecret-tools dbus-x11
@@ -83,10 +89,19 @@ fi
 
 Verify: `secret-tool lookup service xero-command-line username encryption-key` (after `xero login`).
 
-**Without keyring** — either install the packages above, or use:
+**WSL with a flaky keychain (login works, later commands fail):**
 
 ```bash
-export XERO_KEY_STORAGE=file   # or set XERO_TOKEN_PASSPHRASE for a stronger file-based option
+export XERO_KEYRING_FILE_BACKUP=1   # add to ~/.bashrc on that machine
+xero login
+```
+
+**Without any keychain** — use one of:
+
+```bash
+export XERO_KEY_STORAGE=file
+# or
+export XERO_TOKEN_PASSPHRASE='your-secret'
 xero login
 ```
 
@@ -121,7 +136,7 @@ Every command that calls the Xero API supports:
 | `--csv` | Output as CSV |
 | `--toon` | Output as [TOON](https://github.com/toon-format/toon) (compact, LLM-friendly) |
 
-Environment variables `XERO_PROFILE` and `XERO_CLIENT_ID` are also supported. Token storage can be tuned with `XERO_KEY_STORAGE` (`auto`, `keyring`, `file`) and `XERO_TOKEN_PASSPHRASE` (see [Token storage](#token-storage)). The `xero login` command additionally accepts `XERO_SCOPES` (see [OAuth scopes](#oauth-scopes) above).
+Environment variables `XERO_PROFILE` and `XERO_CLIENT_ID` are also supported. Token storage can be tuned with `XERO_KEY_STORAGE`, `XERO_KEYRING_FILE_BACKUP`, and `XERO_TOKEN_PASSPHRASE` (see [Token storage](#token-storage)). The `xero login` command additionally accepts `XERO_SCOPES` (see [OAuth scopes](#oauth-scopes) above).
 
 ## Finding IDs
 
