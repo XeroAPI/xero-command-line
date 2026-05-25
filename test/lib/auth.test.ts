@@ -16,6 +16,7 @@ vi.mock('node:os', async () => {
 })
 
 vi.mock('../../src/lib/crypto.js', () => ({
+  CONFIG_DIR: join(TEST_DIR, '.config', 'xero-command-line'),
   getOrCreateKey: async () => TEST_KEY,
   encrypt: (plaintext: string, key: Buffer) => {
     // Simple reversible encoding for tests

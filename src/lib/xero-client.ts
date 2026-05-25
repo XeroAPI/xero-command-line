@@ -1,5 +1,6 @@
 import {XeroClient} from 'xero-node'
 import {getCachedTokenSet, cacheTokenSet, clearCachedToken, isTokenExpired} from './auth.js'
+import {EncryptionKeyError} from './crypto.js'
 import {refreshAccessToken} from './oauth.js'
 import {getClientHeaders} from './get-client-headers.js'
 
@@ -54,6 +55,7 @@ export async function withRetry<T>(
       const {xero, tenantId} = await createXeroClient(profileName, clientId)
       return await operation(xero, tenantId)
     } catch (error) {
+      if (error instanceof EncryptionKeyError) throw error
       lastError = error instanceof Error ? error : new Error(String(error))
 
       // Handle 401: try refreshing token

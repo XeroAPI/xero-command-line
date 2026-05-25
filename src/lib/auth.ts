@@ -1,7 +1,6 @@
 import {existsSync, mkdirSync, readFileSync, writeFileSync} from 'node:fs'
-import {homedir} from 'node:os'
 import {join} from 'node:path'
-import {encrypt, decrypt, getOrCreateKey} from './crypto.js'
+import {encrypt, decrypt, getOrCreateKey, CONFIG_DIR, EncryptionKeyError} from './crypto.js'
 
 export interface TokenEntry {
   accessToken: string
@@ -23,7 +22,6 @@ interface TokenCache {
   [profileName: string]: EncryptedTokenEntry
 }
 
-const CONFIG_DIR = join(homedir(), '.config', 'xero-command-line')
 const TOKEN_PATH = join(CONFIG_DIR, 'tokens.json')
 const TOKEN_BUFFER_MS = 60_000 // Refresh 60s before expiry
 
@@ -64,11 +62,11 @@ export async function getCachedTokenSet(profileName: string): Promise<TokenEntry
       tenantId: entry.tenantId,
       tenantName: entry.tenantName,
     }
-  } catch {
-    // Decryption failed (key rotated, corrupted data) — clear entry
-    delete cache[profileName]
-    writeTokenCache(cache)
-    return null
+  } catch (error) {
+    if (error instanceof EncryptionKeyError) throw error
+    throw new EncryptionKeyError(
+      'Could not decrypt cached tokens. Run "xero login" to re-authenticate.',
+    )
   }
 }
 

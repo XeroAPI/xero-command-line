@@ -31,6 +31,21 @@ You have access to the `xero` CLI — a command-line tool for the Xero accountin
 xero org details
 ```
 
+### Token storage (Linux / WSL / SSH)
+
+Tokens are encrypted in `~/.config/xero-command-line/tokens.json`. By default the encryption key lives **only** in the OS keychain (on Linux: GNOME Keyring / Secret Service over D-Bus). A file copy is **not** written unless the user opts in.
+
+**If the user is on WSL, SSH, or a headless VM** and sees an encryption-key error after a successful `xero login`:
+
+1. **Prefer fixing the keychain:** `sudo apt install gnome-keyring libsecret-tools dbus-x11`, start `gnome-keyring-daemon`, then `xero login` again.
+2. **Flaky keychain** (login OK, next command fails): `export XERO_KEYRING_FILE_BACKUP=1` before `xero login` — mirrors the key to `~/.config/xero-command-line/.encryption-key` (0600) for later reads. Opt-in; weaker than keychain-only.
+3. **No keychain:** `export XERO_KEY_STORAGE=file` before `xero login`.
+4. **Stronger file-based option:** `export XERO_TOKEN_PASSPHRASE='…'` (same value every session) — scrypt-derived key, not stored in plaintext.
+
+Warn if `XERO_PROFILE`, `XERO_CLIENT_ID`, `XERO_KEY_STORAGE`, `XERO_KEYRING_FILE_BACKUP`, or `XERO_TOKEN_PASSPHRASE` are set — they change profile or how keys are stored. Check with `echo $XERO_PROFILE $XERO_CLIENT_ID $XERO_KEY_STORAGE $XERO_KEYRING_FILE_BACKUP`.
+
+The CLI does **not** wipe `tokens.json` when decryption fails; instruct re-login only after the user confirms.
+
 ## IMPORTANT: Profile and identity verification
 
 Before executing **any** commands (including read-only operations), you **must** verify which Xero organisation is active:
@@ -61,8 +76,21 @@ Every API command supports these flags:
 | `--client-id <id>` | Override the profile with an inline OAuth client ID |
 | `--json` | Output raw JSON (useful for piping to `jq` or further processing) |
 | `--csv` | Output as CSV |
+| `--toon` | Output as [TOON](https://github.com/toon-format/toon) (Token Oriented Object Notation) |
 
-Environment variables `XERO_PROFILE` and `XERO_CLIENT_ID` are also recognised. The `xero login` command additionally accepts `XERO_SCOPES`.
+Environment variables `XERO_PROFILE`, `XERO_CLIENT_ID`, `XERO_KEY_STORAGE`, `XERO_KEYRING_FILE_BACKUP`, and `XERO_TOKEN_PASSPHRASE` are also recognised. The `xero login` command additionally accepts `XERO_SCOPES`. See [Token storage (Linux / WSL / SSH)](#token-storage-linux--wsl--ssh).
+
+### Output format for agents
+
+When you run **read/list commands** and need to parse the results yourself, prefer **`--toon`** over the default table, `--json`, or `--csv`. TOON (Token Oriented Object Notation) is a compact, LLM-friendly encoding — typically far fewer tokens than JSON — so it uses the context window and processing budget more efficiently.
+
+Use `--json` only when the user explicitly needs JSON (e.g. piping to `jq`) or a tool requires it. Use the default table when presenting human-readable output to the user in chat.
+
+```bash
+xero contacts list --search "Acme" --toon
+xero invoices list --toon
+xero accounts list --toon
+```
 
 ## OAuth scopes
 
