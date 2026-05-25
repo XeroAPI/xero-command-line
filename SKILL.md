@@ -76,8 +76,21 @@ Every API command supports these flags:
 | `--client-id <id>` | Override the profile with an inline OAuth client ID |
 | `--json` | Output raw JSON (useful for piping to `jq` or further processing) |
 | `--csv` | Output as CSV |
+| `--toon` | Output as [TOON](https://github.com/toon-format/toon) (Token Oriented Object Notation) |
 
 Environment variables `XERO_PROFILE`, `XERO_CLIENT_ID`, `XERO_KEY_STORAGE`, `XERO_KEYRING_FILE_BACKUP`, and `XERO_TOKEN_PASSPHRASE` are also recognised. The `xero login` command additionally accepts `XERO_SCOPES`. See [Token storage (Linux / WSL / SSH)](#token-storage-linux--wsl--ssh).
+
+### Output format for agents
+
+When you run **read/list commands** and need to parse the results yourself, prefer **`--toon`** over the default table, `--json`, or `--csv`. TOON (Token Oriented Object Notation) is a compact, LLM-friendly encoding — typically far fewer tokens than JSON — so it uses the context window and processing budget more efficiently.
+
+Use `--json` only when the user explicitly needs JSON (e.g. piping to `jq`) or a tool requires it. Use the default table when presenting human-readable output to the user in chat.
+
+```bash
+xero contacts list --search "Acme" --toon
+xero invoices list --toon
+xero accounts list --toon
+```
 
 ## OAuth scopes
 
