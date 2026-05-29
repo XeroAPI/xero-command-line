@@ -2,7 +2,7 @@
 
 A command-line tool for the Xero API using PKCE OAuth. Authenticates via browser-based login — no client secret required. Supports multiple Xero organisations via named profiles.
 
-> **Alpha** (v0.0.6) — APIs may change.
+> **Alpha** (v0.0.7) — APIs may change.
 
 ## Install
 
