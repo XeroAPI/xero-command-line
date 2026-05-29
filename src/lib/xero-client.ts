@@ -58,8 +58,10 @@ export async function withRetry<T>(
       if (error instanceof EncryptionKeyError) throw error
       lastError = error instanceof Error ? error : new Error(String(error))
 
+      const {statusCode, parsed} = parseXeroError(lastError)
+
       // Handle 401: try refreshing token
-      if (lastError.message.includes('401') && attempt < maxRetries) {
+      if (statusCode === 401 && attempt < maxRetries) {
         const cached = await getCachedTokenSet(profileName)
         if (cached?.refreshToken) {
           try {
@@ -76,57 +78,93 @@ export async function withRetry<T>(
       }
 
       // Handle rate limit
-      if (lastError.message.includes('429')) {
-        const retryAfter = extractRetryAfter(lastError.message)
+      if (statusCode === 429) {
+        const retryAfter = extractRetryAfter(parsed, lastError.message)
         throw new Error(`Rate limited. Retry after ${retryAfter} seconds.`)
       }
 
       // Handle 404
-      if (lastError.message.includes('404')) {
+      if (statusCode === 404) {
         throw new Error('Resource not found.')
       }
 
-      throw sanitizeApiError(lastError)
+      throw sanitizeApiError(lastError, {statusCode, parsed})
     }
   }
 
   throw lastError ? sanitizeApiError(lastError) : new Error('Operation failed after retries')
 }
 
-function sanitizeApiError(error: Error): Error {
-  try {
-    const err = error as unknown as Record<string, unknown>
-    const response = err.response as Record<string, unknown> | undefined
-    const body = response?.body as Record<string, unknown> | undefined
+interface ParsedXeroError {
+  statusCode?: number
+  parsed?: Record<string, unknown>
+}
 
-    // Extract Xero validation messages if available
+export function parseXeroError(error: Error): ParsedXeroError {
+  const message = error.message
+  if (typeof message !== 'string') return {}
+  const trimmed = message.trim()
+  if (!trimmed.startsWith('{')) return {}
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(trimmed)
+  } catch {
+    return {}
+  }
+  if (!parsed || typeof parsed !== 'object') return {}
+
+  const obj = parsed as Record<string, unknown>
+  const response = obj.response as Record<string, unknown> | undefined
+  const rawStatus = response?.statusCode ?? response?.status
+  const statusCode = typeof rawStatus === 'number' ? rawStatus : undefined
+  return {statusCode, parsed: obj}
+}
+
+export function sanitizeApiError(error: Error, hint?: ParsedXeroError): Error {
+  const {statusCode, parsed} = hint ?? parseXeroError(error)
+
+  // Non-Xero error (network, our own thrown messages, etc.) — pass through.
+  if (!parsed) return new Error(error.message)
+
+  try {
+    const response = parsed.response as Record<string, unknown> | undefined
+    const body = (parsed.body ?? response?.body) as Record<string, unknown> | undefined
+    const statusSuffix = statusCode ? ` (${statusCode})` : ''
+
     if (body) {
-      const statusCode = response?.statusCode ?? response?.status ?? ''
       const elements = body.Elements as Array<Record<string, unknown>> | undefined
       if (elements?.length) {
         const messages = elements
-          .flatMap(el => (el.ValidationErrors as Array<{Message: string}>) ?? [])
+          .flatMap(el => (el.ValidationErrors as Array<{Message?: string}> | undefined) ?? [])
           .map(ve => ve.Message)
-          .filter(Boolean)
+          .filter((m): m is string => Boolean(m))
         if (messages.length) {
-          return new Error(`Xero API error${statusCode ? ` (${statusCode})` : ''}: ${messages.join('; ')}`)
+          return new Error(`Xero API error${statusSuffix}: ${messages.join('; ')}`)
         }
       }
 
-      // Try top-level message from body
-      if (body.Message || body.message) {
-        return new Error(`Xero API error${statusCode ? ` (${statusCode})` : ''}: ${body.Message ?? body.message}`)
+      const topMessage = body.Message ?? body.message
+      if (typeof topMessage === 'string' && topMessage) {
+        return new Error(`Xero API error${statusSuffix}: ${topMessage}`)
       }
     }
-  } catch {
-    // Fall through to returning the message-only error
-  }
 
-  // Fallback: only propagate the message string, never the full error object
-  return new Error(error.message)
+    return new Error(`Xero API error${statusSuffix}`)
+  } catch {
+    return new Error(statusCode ? `Xero API error (${statusCode})` : 'Xero API error')
+  }
 }
 
-function extractRetryAfter(message: string): number {
-  const match = /retry-after:\s*(\d+)/i.exec(message)
+function extractRetryAfter(parsed: Record<string, unknown> | undefined, fallbackMessage: string): number {
+  const headers = (parsed?.response as Record<string, unknown> | undefined)?.headers as
+    | Record<string, unknown>
+    | undefined
+  const headerValue = headers?.['retry-after']
+  if (typeof headerValue === 'string' || typeof headerValue === 'number') {
+    const n = Number(headerValue)
+    if (Number.isFinite(n) && n > 0) return n
+  }
+  const match = /retry-after[":\s]+(\d+)/i.exec(fallbackMessage)
   return match ? Number(match[1]) : 60
 }
