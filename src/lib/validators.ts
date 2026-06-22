@@ -171,6 +171,19 @@ export const itemUpdateSchema = itemCreateSchema.extend({
   itemId: z.string().min(1, 'Item ID is required'),
 })
 
+const accountTypes = ['BANK', 'CURRENT', 'CURRLIAB', 'DEPRECIATN', 'DIRECTCOSTS', 'EQUITY', 'EXPENSE', 'FIXED', 'INVENTORY', 'LIABILITY', 'NONCURRENT', 'OTHERINCOME', 'OVERHEADS', 'PREPAYMENT', 'REVENUE', 'SALES', 'TERMLIAB', 'PAYG'] as const
+
+export const accountCreateSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  code: z.string().min(1, 'Code is required'),
+  type: z.enum([...accountTypes], {message: `Type must be one of: ${accountTypes.join(', ')}`}),
+  description: z.string().optional(),
+  taxType: z.string().optional(),
+  enablePaymentsToAccount: z.boolean().optional(),
+  showInExpenseClaims: z.boolean().optional(),
+  addToWatchlist: z.boolean().optional(),
+})
+
 export const accountUpdateSchema = z.object({
   accountId: z.string().min(1, 'Account ID is required'),
   name: z.string().min(1).optional(),
@@ -179,6 +192,8 @@ export const accountUpdateSchema = z.object({
   status: z.enum(['ACTIVE', 'ARCHIVED']).optional(),
   taxType: z.string().optional(),
   enablePaymentsToAccount: z.boolean().optional(),
+  showInExpenseClaims: z.boolean().optional(),
+  addToWatchlist: z.boolean().optional(),
 })
 
 export const trackingCategoryCreateSchema = z.object({
