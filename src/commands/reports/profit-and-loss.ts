@@ -32,11 +32,11 @@ export default class ReportsProfitAndLoss extends BaseCommand {
         flags.periods,
         flags.timeframe as 'MONTH' | 'QUARTER' | 'YEAR' | undefined,
         undefined, // tracking category ID
-        undefined, // tracking option ID
         undefined, // tracking category ID 2
+        undefined, // tracking option ID
         undefined, // tracking option ID 2
-        flags['payments-only'] || undefined,
         flags['standard-layout'] || undefined,
+        flags['payments-only'] || undefined,
       )
       return response.body.reports?.[0]
     })
