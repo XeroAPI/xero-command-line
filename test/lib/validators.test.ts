@@ -4,6 +4,7 @@ import {
   lineItemSchema,
   invoiceCreateSchema,
   contactCreateSchema,
+  contactUpdateSchema,
   paymentCreateSchema,
   journalCreateSchema,
   formatZodError,
@@ -134,6 +135,26 @@ describe('contactCreateSchema', () => {
 
   it('rejects invalid email', () => {
     expect(contactCreateSchema.safeParse({name: 'Acme', email: 'not-an-email'}).success).toBe(false)
+  })
+})
+
+describe('contactUpdateSchema', () => {
+  it('accepts an email-only update', () => {
+    expect(contactUpdateSchema.safeParse({
+      contactId: 'contact-123',
+      email: 'new@example.com',
+    }).success).toBe(true)
+  })
+
+  it('accepts a phone-only update', () => {
+    expect(contactUpdateSchema.safeParse({
+      contactId: 'contact-123',
+      phone: '+1234567890',
+    }).success).toBe(true)
+  })
+
+  it('rejects an update with no mutable fields', () => {
+    expect(contactUpdateSchema.safeParse({contactId: 'contact-123'}).success).toBe(false)
   })
 })
 

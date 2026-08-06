@@ -41,7 +41,7 @@ export const contactCreateSchema = z.object({
 
 export const contactUpdateSchema = z.object({
   contactId: z.string().min(1, 'Contact ID is required'),
-  name: z.string().min(1, 'Name is required'),
+  name: z.string().min(1, 'Name cannot be empty').optional(),
   email: z.string().email('Invalid email format').optional(),
   phone: z.string().optional(),
   firstName: z.string().optional(),
@@ -54,7 +54,15 @@ export const contactUpdateSchema = z.object({
     postalCode: z.string().optional(),
     country: z.string().optional(),
   }).optional(),
-})
+}).refine(
+  data => data.name !== undefined ||
+    data.email !== undefined ||
+    data.phone !== undefined ||
+    data.firstName !== undefined ||
+    data.lastName !== undefined ||
+    data.address !== undefined,
+  {message: 'Provide at least one contact field to update', path: ['name']},
+)
 
 export const quoteCreateSchema = z.object({
   contactId: z.string().min(1, 'Contact ID is required'),
