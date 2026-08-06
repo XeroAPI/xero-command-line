@@ -56,7 +56,7 @@ export default class ReportsAgedPayables extends BaseCommand {
         {key: 'paid', header: 'Paid', format: (v) => v ? formatCurrency(v) : ''},
         {key: 'credited', header: 'Credited', format: (v) => v ? formatCurrency(v) : ''},
       ],
-      {csv: flags.csv},
+      flags,
     )
   }
 

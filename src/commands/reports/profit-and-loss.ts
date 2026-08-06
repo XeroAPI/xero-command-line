@@ -62,7 +62,7 @@ export default class ReportsProfitAndLoss extends BaseCommand {
         {key: 'account', header: 'Account'},
         {key: 'amount', header: 'Amount', format: (v) => v ? formatCurrency(v) : ''},
       ],
-      {csv: flags.csv},
+      flags,
     )
   }
 

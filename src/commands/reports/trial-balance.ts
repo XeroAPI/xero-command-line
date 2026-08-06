@@ -52,7 +52,7 @@ export default class ReportsTrialBalance extends BaseCommand {
         {key: 'debit', header: 'Debit', format: (v) => v ? formatCurrency(v) : ''},
         {key: 'credit', header: 'Credit', format: (v) => v ? formatCurrency(v) : ''},
       ],
-      {csv: flags.csv},
+      flags,
     )
   }
 
