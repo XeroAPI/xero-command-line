@@ -51,10 +51,13 @@ export default class ReportsAgedReceivables extends BaseCommand {
       rows,
       [
         {key: 'date', header: 'Date', format: (v) => formatDate(v)},
-        {key: 'reference', header: 'Reference'},
-        {key: 'due', header: 'Due', format: (v) => v ? formatCurrency(v) : ''},
+        {key: 'reference', header: 'Reference / Number'},
+        {key: 'dueDate', header: 'Due Date', format: (v) => formatDate(v)},
+        {key: 'aging', header: 'Aging'},
+        {key: 'total', header: 'Total', format: (v) => v ? formatCurrency(v) : ''},
         {key: 'paid', header: 'Paid', format: (v) => v ? formatCurrency(v) : ''},
         {key: 'credited', header: 'Credited', format: (v) => v ? formatCurrency(v) : ''},
+        {key: 'due', header: 'Due', format: (v) => v ? formatCurrency(v) : ''},
       ],
       {csv: flags.csv},
     )
@@ -68,13 +71,16 @@ export default class ReportsAgedReceivables extends BaseCommand {
       const sectionRows = (section.rows ?? []) as Array<Record<string, unknown>>
       for (const row of sectionRows) {
         const cells = (row.cells ?? []) as Array<Record<string, unknown>>
-        if (cells.length >= 5) {
+        if (cells.length >= 8) {
           rows.push({
             date: cells[0]?.value,
             reference: cells[1]?.value,
-            due: cells[2]?.value,
-            paid: cells[3]?.value,
-            credited: cells[4]?.value,
+            dueDate: cells[2]?.value,
+            aging: cells[3]?.value,
+            total: cells[4]?.value,
+            paid: cells[5]?.value,
+            credited: cells[6]?.value,
+            due: cells[7]?.value,
           })
         }
       }
