@@ -39,6 +39,54 @@ interface TokenSet {
   scope?: string
 }
 
+interface OAuthErrorResponse {
+  error?: string
+  error_description?: string
+}
+
+export class OAuthTokenRefreshError extends Error {
+  constructor(
+    public readonly statusCode: number,
+    public readonly oauthError?: string,
+    public readonly oauthErrorDescription?: string,
+  ) {
+    super(
+      oauthError
+        ? `Token refresh failed (${statusCode}): ${oauthError}`
+        : `Token refresh failed (${statusCode}).`,
+    )
+    this.name = 'OAuthTokenRefreshError'
+  }
+}
+
+function parseOAuthErrorResponse(responseText: string): OAuthErrorResponse {
+  try {
+    const parsed: unknown = JSON.parse(responseText)
+    if (!parsed || typeof parsed !== 'object') return {}
+
+    const response = parsed as Record<string, unknown>
+    return {
+      error: typeof response.error === 'string' ? response.error : undefined,
+      error_description: typeof response.error_description === 'string'
+        ? response.error_description
+        : undefined,
+    }
+  } catch {
+    return {}
+  }
+}
+
+/**
+ * A refresh token is only known to be unusable when the OAuth token endpoint
+ * explicitly returns invalid_grant. Transport failures and other responses
+ * are retryable and must not discard the cached credentials.
+ */
+export function isInvalidRefreshTokenError(error: unknown): boolean {
+  return error instanceof OAuthTokenRefreshError
+    && error.statusCode === 400
+    && error.oauthError === 'invalid_grant'
+}
+
 interface XeroTenant {
   id: string
   authEventId: string
@@ -224,7 +272,12 @@ export async function refreshAccessToken(
 
   if (!response.ok) {
     const text = await response.text()
-    throw new Error(`Token refresh failed (${response.status}): ${text}`)
+    const oauthError = parseOAuthErrorResponse(text)
+    throw new OAuthTokenRefreshError(
+      response.status,
+      oauthError.error,
+      oauthError.error_description,
+    )
   }
 
   return response.json() as Promise<TokenSet>

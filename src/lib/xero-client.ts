@@ -1,10 +1,34 @@
 import {XeroClient} from 'xero-node'
-import {getCachedTokenSet, cacheTokenSet, clearCachedToken, isTokenExpired} from './auth.js'
+import {getCachedTokenSet, cacheTokenSet, clearCachedToken, isTokenExpired, type TokenEntry} from './auth.js'
 import {EncryptionKeyError} from './crypto.js'
-import {refreshAccessToken} from './oauth.js'
+import {isInvalidRefreshTokenError, refreshAccessToken} from './oauth.js'
 import {getClientHeaders} from './get-client-headers.js'
 
 export {clearCachedToken}
+
+const SESSION_EXPIRED_MESSAGE = 'Session expired. Run "xero login" to re-authenticate.'
+const REFRESH_UNAVAILABLE_MESSAGE = 'Unable to refresh Xero session. Please try again.'
+
+async function refreshCachedToken(
+  profileName: string,
+  clientId: string,
+  cached: TokenEntry,
+) {
+  try {
+    const newTokenSet = await refreshAccessToken(clientId, cached.refreshToken)
+    await cacheTokenSet(profileName, newTokenSet, cached.tenantId, cached.tenantName)
+    return newTokenSet
+  } catch (error) {
+    if (error instanceof EncryptionKeyError) throw error
+
+    if (isInvalidRefreshTokenError(error)) {
+      clearCachedToken(profileName)
+      throw new Error(SESSION_EXPIRED_MESSAGE)
+    }
+
+    throw new Error(REFRESH_UNAVAILABLE_MESSAGE)
+  }
+}
 
 export async function createXeroClient(
   profileName: string,
@@ -20,14 +44,8 @@ export async function createXeroClient(
 
   // If token is expired, try to refresh
   if (isTokenExpired(cached)) {
-    try {
-      const newTokenSet = await refreshAccessToken(clientId, cached.refreshToken)
-      await cacheTokenSet(profileName, newTokenSet, cached.tenantId, cached.tenantName)
-      accessToken = newTokenSet.access_token
-    } catch {
-      clearCachedToken(profileName)
-      throw new Error(`Session expired. Run "xero login" to re-authenticate.`)
-    }
+    const newTokenSet = await refreshCachedToken(profileName, clientId, cached)
+    accessToken = newTokenSet.access_token
   }
 
   const xero = new XeroClient({clientId, clientSecret: ''})
@@ -64,14 +82,8 @@ export async function withRetry<T>(
       if (statusCode === 401 && attempt < maxRetries) {
         const cached = await getCachedTokenSet(profileName)
         if (cached?.refreshToken) {
-          try {
-            const newTokenSet = await refreshAccessToken(clientId, cached.refreshToken)
-            await cacheTokenSet(profileName, newTokenSet, cached.tenantId, cached.tenantName)
-            continue
-          } catch {
-            clearCachedToken(profileName)
-            throw new Error(`Session expired. Run "xero login" to re-authenticate.`)
-          }
+          await refreshCachedToken(profileName, clientId, cached)
+          continue
         }
         clearCachedToken(profileName)
         continue
