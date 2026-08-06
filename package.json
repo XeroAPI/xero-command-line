@@ -121,7 +121,7 @@
     "oclif": "^4",
     "ts-node": "^10",
     "typescript": "^5",
-    "vitest": "^2"
+    "vitest": "^4.1.10"
   },
   "engines": {
     "node": ">=18.0.0"
