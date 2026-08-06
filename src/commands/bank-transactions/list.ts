@@ -45,11 +45,11 @@ export default class BankTransactionsList extends BaseCommand {
     const result = await this.xeroCall(flags, async (xero, tenantId) => {
       const whereClauses: string[] = []
       if (flags['bank-account-id']) {
-        whereClauses.push(`BankAccount.AccountID=guid("${flags['bank-account-id']}")`)
+        whereClauses.push(`BankAccount.AccountID==guid("${flags['bank-account-id']}")`)
       }
 
       if (flags['bank-transaction-id']) {
-        whereClauses.push(`BankTransactionID=guid("${flags['bank-transaction-id']}")`)
+        whereClauses.push(`BankTransactionID==guid("${flags['bank-transaction-id']}")`)
       }
 
       const where = whereClauses.length > 0 ? whereClauses.join(' AND ') : undefined

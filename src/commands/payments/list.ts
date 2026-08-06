@@ -32,13 +32,13 @@ export default class PaymentsList extends BaseCommand {
 
       const whereClauses: string[] = []
       if (flags['invoice-id']) {
-        whereClauses.push(`Invoice.InvoiceID=guid("${flags['invoice-id']}")`)
+        whereClauses.push(`Invoice.InvoiceID==guid("${flags['invoice-id']}")`)
       }
       if (flags['invoice-number']) {
-        whereClauses.push(`Invoice.InvoiceNumber="${flags['invoice-number']}"`)
+        whereClauses.push(`Invoice.InvoiceNumber=="${flags['invoice-number']}"`)
       }
       if (flags.reference) {
-        whereClauses.push(`Reference="${flags.reference}"`)
+        whereClauses.push(`Reference=="${flags.reference}"`)
       }
       const where = whereClauses.length > 0 ? whereClauses.join(' AND ') : undefined
 
