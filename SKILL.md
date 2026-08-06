@@ -303,7 +303,6 @@ xero payments create --file payment.json
 
 ```bash
 xero items list
-xero items list --page 2
 
 xero items create --code WIDGET --name "Widget" --sale-price 29.99
 xero items create --file item.json

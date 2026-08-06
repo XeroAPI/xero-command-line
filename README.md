@@ -357,7 +357,6 @@ xero payments create --file payment.json
 ```bash
 # List items
 xero items list
-xero items list --page 2
 
 # Create an item
 xero items create --code WIDGET --name "Widget" --sale-price 29.99
