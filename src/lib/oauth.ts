@@ -9,6 +9,14 @@ const CALLBACK_TIMEOUT_MS = 120_000
 
 const REQUIRED_OAUTH_SCOPES = ['openid', 'profile', 'email', 'offline_access']
 
+const HTML_ESCAPE_MAP: Record<string, string> = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;',
+}
+
 const SCOPES = [
   ...REQUIRED_OAUTH_SCOPES,
   // Contacts & settings
@@ -61,6 +69,10 @@ function resolveScopes(scopes?: string): string {
   return [...new Set([...REQUIRED_OAUTH_SCOPES, ...requested])].join(' ')
 }
 
+export function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, character => HTML_ESCAPE_MAP[character] ?? character)
+}
+
 function buildAuthUrl(clientId: string, codeChallenge: string, state: string, scopes?: string): string {
   const params = new URLSearchParams({
     response_type: 'code',
@@ -95,8 +107,11 @@ function waitForCallback(expectedState: string): Promise<string> {
 
       if (error) {
         const desc = url.searchParams.get('error_description') ?? error
-        res.writeHead(200, {'Content-Type': 'text/html'})
-        res.end(`<html><body><h1>Authentication Failed</h1><p>${desc}</p><p>You can close this window.</p></body></html>`)
+        res.writeHead(200, {
+          'Content-Security-Policy': "default-src 'none'; base-uri 'none'; form-action 'none'",
+          'Content-Type': 'text/html; charset=utf-8',
+        })
+        res.end(`<html><body><h1>Authentication Failed</h1><p>${escapeHtml(desc)}</p><p>You can close this window.</p></body></html>`)
         clearTimeout(timeout)
         server.close()
         reject(new Error(`OAuth error: ${desc}`))
