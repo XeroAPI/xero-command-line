@@ -60,10 +60,27 @@ export default class ReportsProfitAndLoss extends BaseCommand {
       rows,
       [
         {key: 'account', header: 'Account'},
-        {key: 'amount', header: 'Amount', format: (v) => v ? formatCurrency(v) : ''},
+        ...this.extractPeriodColumns(report),
       ],
       {csv: flags.csv},
     )
+  }
+
+  private extractPeriodColumns(report: Record<string, unknown>) {
+    const rows = (report.rows ?? []) as Array<Record<string, unknown>>
+    const header = rows.find(row => row.rowType === 'Header')
+    const cells = (header?.cells ?? []) as Array<Record<string, unknown>>
+    const periods = cells.slice(1)
+
+    if (periods.length === 0) {
+      return [{key: 'period0', header: 'Amount', format: (v: unknown) => v ? formatCurrency(v) : ''}]
+    }
+
+    return periods.map((cell, index) => ({
+      key: `period${index}`,
+      header: String(cell.value ?? `Period ${index + 1}`),
+      format: (v: unknown) => v ? formatCurrency(v) : '',
+    }))
   }
 
   private extractReportRows(report: Record<string, unknown>): Record<string, unknown>[] {
@@ -72,16 +89,17 @@ export default class ReportsProfitAndLoss extends BaseCommand {
 
     for (const section of sections) {
       if (section.title) {
-        rows.push({account: `--- ${section.title} ---`, amount: ''})
+        rows.push({account: `--- ${section.title} ---`})
       }
       const sectionRows = (section.rows ?? []) as Array<Record<string, unknown>>
       for (const row of sectionRows) {
         const cells = (row.cells ?? []) as Array<Record<string, unknown>>
         if (cells.length >= 2) {
-          rows.push({
-            account: cells[0]?.value,
-            amount: cells[1]?.value,
+          const reportRow: Record<string, unknown> = {account: cells[0]?.value}
+          cells.slice(1).forEach((cell, index) => {
+            reportRow[`period${index}`] = cell?.value
           })
+          rows.push(reportRow)
         }
       }
     }
