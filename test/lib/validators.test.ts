@@ -6,6 +6,7 @@ import {
   contactCreateSchema,
   paymentCreateSchema,
   journalCreateSchema,
+  journalUpdateSchema,
   formatZodError,
   contactFileCreateSchema,
   contactFileUpdateSchema,
@@ -164,10 +165,10 @@ describe('paymentCreateSchema', () => {
 })
 
 describe('journalCreateSchema', () => {
-  it('accepts valid journal with balanced lines', () => {
+  it('accepts valid journal with Xero journalLines', () => {
     expect(journalCreateSchema.safeParse({
       narration: 'Test journal',
-      manualJournalLines: [
+      journalLines: [
         {accountCode: '200', lineAmount: 100},
         {accountCode: '400', lineAmount: -100},
       ],
@@ -177,7 +178,7 @@ describe('journalCreateSchema', () => {
   it('rejects fewer than 2 lines', () => {
     expect(journalCreateSchema.safeParse({
       narration: 'Test journal',
-      manualJournalLines: [
+      journalLines: [
         {accountCode: '200', lineAmount: 100},
       ],
     }).success).toBe(false)
@@ -186,11 +187,24 @@ describe('journalCreateSchema', () => {
   it('rejects empty narration', () => {
     expect(journalCreateSchema.safeParse({
       narration: '',
-      manualJournalLines: [
+      journalLines: [
         {accountCode: '200', lineAmount: 100},
         {accountCode: '400', lineAmount: -100},
       ],
     }).success).toBe(false)
+  })
+})
+
+describe('journalUpdateSchema', () => {
+  it('accepts Xero journalLines', () => {
+    expect(journalUpdateSchema.safeParse({
+      manualJournalID: 'journal-123',
+      narration: 'Updated journal',
+      journalLines: [
+        {accountCode: '200', lineAmount: 100},
+        {accountCode: '400', lineAmount: -100},
+      ],
+    }).success).toBe(true)
   })
 })
 

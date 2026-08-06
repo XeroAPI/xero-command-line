@@ -103,7 +103,7 @@ export const journalLineSchema = z.object({
 
 export const journalCreateSchema = z.object({
   narration: z.string().min(1, 'Narration is required'),
-  manualJournalLines: z.array(journalLineSchema).min(2, 'At least two journal lines are required'),
+  journalLines: z.array(journalLineSchema).min(2, 'At least two journal lines are required'),
   date: dateSchema.optional(),
   lineAmountTypes: z.enum(['EXCLUSIVE', 'INCLUSIVE', 'NO_TAX']).optional(),
   status: z.enum(['DRAFT', 'POSTED', 'DELETED', 'VOIDED', 'ARCHIVED']).optional(),
@@ -114,7 +114,7 @@ export const journalCreateSchema = z.object({
 export const journalUpdateSchema = z.object({
   manualJournalID: z.string().min(1, 'Manual journal ID is required'),
   narration: z.string().min(1, 'Narration is required'),
-  manualJournalLines: z.array(journalLineSchema).min(2, 'At least two journal lines are required'),
+  journalLines: z.array(journalLineSchema).min(2, 'At least two journal lines are required'),
   date: dateSchema.optional(),
   lineAmountTypes: z.enum(['EXCLUSIVE', 'INCLUSIVE', 'NO_TAX']).optional(),
   status: z.enum(['DRAFT', 'POSTED', 'DELETED', 'VOIDED', 'ARCHIVED']).optional(),

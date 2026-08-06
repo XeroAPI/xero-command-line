@@ -312,7 +312,7 @@ xero manual-journals update --file journal-update.json
 ```json
 {
   "narration": "Reclassify office supplies",
-  "manualJournalLines": [
+  "journalLines": [
     { "accountCode": "200", "lineAmount": 100, "description": "Debit" },
     { "accountCode": "400", "lineAmount": -100, "description": "Credit" }
   ]
