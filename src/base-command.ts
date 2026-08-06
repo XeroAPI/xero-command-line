@@ -5,6 +5,7 @@ import {XeroClient} from 'xero-node'
 import {getProfileClientId, getDefaultProfile} from './lib/profiles.js'
 import {withRetry} from './lib/xero-client.js'
 import {formatOutput, type OutputFormat} from './lib/formatters.js'
+import {resolveCredentialCacheKey} from './lib/credential-cache-key.js'
 
 export abstract class BaseCommand extends Command {
   static baseFlags = {
@@ -35,21 +36,12 @@ export abstract class BaseCommand extends Command {
     profile?: string
     'client-id'?: string
   }): {profileName: string; clientId: string} {
-    // Priority 1: Explicit client-id flag
-    if (flags['client-id']) {
-      return {
-        profileName: flags.profile ?? '_inline',
-        clientId: flags['client-id'],
-      }
-    }
-
-    // Priority 2: Named profile or default
-    const profileName = flags.profile ?? getDefaultProfile()
+    const profileName = resolveCredentialCacheKey(flags) ?? getDefaultProfile()
     if (!profileName) {
       this.error('No profile configured. Run "xero profile add <name>" to set up a profile.')
     }
 
-    const clientId = getProfileClientId(profileName)
+    const clientId = flags['client-id'] ?? getProfileClientId(profileName)
     return {profileName, clientId}
   }
 

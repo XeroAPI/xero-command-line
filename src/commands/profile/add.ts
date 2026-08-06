@@ -2,6 +2,7 @@ import {Args, Flags} from '@oclif/core'
 import {input} from '@inquirer/prompts'
 import {BaseCommand} from '../../base-command.js'
 import {addProfile, profileExists} from '../../lib/profiles.js'
+import {clearCachedToken} from '../../lib/auth.js'
 
 export default class ProfileAdd extends BaseCommand {
   static override args = {
@@ -24,7 +25,8 @@ export default class ProfileAdd extends BaseCommand {
     const {args, flags} = await this.parse(ProfileAdd)
     const {name} = args
 
-    if (profileExists(name) && !flags.force) {
+    const replacingProfile = profileExists(name)
+    if (replacingProfile && !flags.force) {
       this.error(`Profile "${name}" already exists. Use --force to overwrite.`)
     }
 
@@ -32,6 +34,10 @@ export default class ProfileAdd extends BaseCommand {
       message: 'Xero Client ID:',
       validate: (v) => v.length > 0 || 'Client ID is required',
     })
+
+    if (replacingProfile) {
+      clearCachedToken(name)
+    }
 
     addProfile(name, clientId)
 

@@ -1,6 +1,7 @@
 import {Args} from '@oclif/core'
 import {BaseCommand} from '../../base-command.js'
 import {profileExists, removeProfile} from '../../lib/profiles.js'
+import {clearCachedToken} from '../../lib/auth.js'
 
 export default class ProfileRemove extends BaseCommand {
   static override args = {
@@ -19,6 +20,7 @@ export default class ProfileRemove extends BaseCommand {
       this.error(`Profile "${name}" not found.`)
     }
 
+    clearCachedToken(name)
     removeProfile(name)
     this.log(`Profile "${name}" removed.`)
   }

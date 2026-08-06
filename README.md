@@ -138,6 +138,13 @@ Every command that calls the Xero API supports:
 
 Environment variables `XERO_PROFILE` and `XERO_CLIENT_ID` are also supported. Token storage can be tuned with `XERO_KEY_STORAGE`, `XERO_KEYRING_FILE_BACKUP`, and `XERO_TOKEN_PASSPHRASE` (see [Token storage](#token-storage)). The `xero login` command additionally accepts `XERO_SCOPES` (see [OAuth scopes](#oauth-scopes) above).
 
+When using an inline client ID rather than a named profile, use the same client ID for login and logout. Inline sessions are kept separate for each client ID:
+
+```bash
+xero login --client-id YOUR_CLIENT_ID
+xero logout --client-id YOUR_CLIENT_ID
+```
+
 ## Finding IDs
 
 Most commands that reference contacts, invoices, or accounts require a Xero GUID (e.g., `edc74793-8d7e-4bf2-9e63-146dc4c675a2`). Use the list commands to find IDs:
