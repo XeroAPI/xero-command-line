@@ -85,6 +85,11 @@ describe('formatDate', () => {
     expect(formatDate('/Date(1735689600000+0000)/')).toBe('2025-01-01')
   })
 
+  it('formats Xero /Date()/ values before the Unix epoch', () => {
+    // Dec 31, 1969 00:00:00 UTC = -86400000
+    expect(formatDate('/Date(-86400000+0000)/')).toBe('1969-12-31')
+  })
+
   it('formats Date objects', () => {
     const date = new Date('2025-06-15')
     expect(formatDate(date)).toBe('2025-06-15')

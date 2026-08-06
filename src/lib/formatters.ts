@@ -107,7 +107,7 @@ export function formatDate(date: unknown): string {
   if (!date) return ''
   if (typeof date === 'string') {
     // Handle Xero's /Date(...)/ format
-    const msMatch = /\/Date\((\d+)\+\d+\)\//.exec(date)
+    const msMatch = /\/Date\((-?\d+)(?:[+-]\d{4})?\)\//.exec(date)
     if (msMatch) {
       return new Date(Number(msMatch[1])).toISOString().split('T')[0]
     }
