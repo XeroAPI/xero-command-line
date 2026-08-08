@@ -105,7 +105,7 @@
   },
   "dependencies": {
     "@inquirer/prompts": "^7",
-    "@napi-rs/keyring": "^1.2.0",
+    "@napi-rs/keyring": "^1.3.0",
     "@oclif/core": "^4",
     "@oclif/plugin-help": "^6",
     "@toon-format/toon": "^2.1.0",
