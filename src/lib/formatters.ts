@@ -52,15 +52,39 @@ function formatCsv(
   data: Record<string, unknown>[],
   columns: {key: string; header: string}[],
 ): string {
-  const header = columns.map(col => escapeCsv(col.header)).join(',')
+  const header = columns.map(col => escapeCsv(neutralizeCsvFormula(col.header))).join(',')
   const rows = data.map(row =>
-    columns.map(col => escapeCsv(String(getNestedValue(row, col.key) ?? ''))).join(','),
+    columns
+      .map(col => {
+        const value = getNestedValue(row, col.key)
+        const stringValue = String(value ?? '')
+        return escapeCsv(typeof value === 'string' ? neutralizeCsvFormula(stringValue) : stringValue)
+      })
+      .join(','),
   )
   return [header, ...rows].join('\n')
 }
 
+function neutralizeCsvFormula(value: string): string {
+  // Spreadsheet applications can evaluate a CSV field that begins with a
+  // formula prefix. Prefix such text values so exports remain data when
+  // opened. '=' is always neutralized. '+', '-', and '@' are exempted when
+  // the rest of the value is purely alphanumeric (for example the code
+  // '-00123'), so benign identifiers round-trip byte-for-byte.
+  const trimmed = value.replace(/^[\t\r\n ]+/, '')
+  if (trimmed.startsWith('=')) {
+    return `'${value}`
+  }
+
+  if (/^[+\-@]/.test(trimmed) && !/^[+\-@][0-9A-Za-z]*$/.test(trimmed)) {
+    return `'${value}`
+  }
+
+  return value
+}
+
 function escapeCsv(value: string): string {
-  if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+  if (value.includes(',') || value.includes('"') || /[\r\n]/.test(value)) {
     return `"${value.replace(/"/g, '""')}"`
   }
   return value

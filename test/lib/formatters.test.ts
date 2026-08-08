@@ -34,6 +34,35 @@ describe('formatOutput', () => {
     expect(result).toContain('"Acme, Inc."')
   })
 
+  it('neutralizes formula-like CSV strings without converting numeric values to text', () => {
+    const formulaData = [
+      {name: '=HYPERLINK("https://example.test", "click")', age: -42, email: ' \t@SUM(1,1)'},
+    ]
+
+    const result = formatOutput(formulaData, columns, 'csv')
+
+    expect(result).toContain(`"'=HYPERLINK(""https://example.test"", ""click"")"`)
+    expect(result).toContain('-42')
+    expect(result).toContain('"\' \t@SUM(1,1)"')
+  })
+
+  it('round-trips alphanumeric codes with a leading sign unmodified', () => {
+    const codeData = [{name: '-00123', age: 1, email: '+ABC123'}]
+
+    const result = formatOutput(codeData, columns, 'csv')
+    const lines = result.split('\n')
+
+    expect(lines[1]).toBe('-00123,1,+ABC123')
+  })
+
+  it('always neutralizes values starting with an equals sign', () => {
+    const equalsData = [{name: '=00123', age: 2, email: 'a@b.com'}]
+
+    const result = formatOutput(equalsData, columns, 'csv')
+
+    expect(result).toContain(`'=00123`)
+  })
+
   it('outputs table format', () => {
     const result = formatOutput(data, columns, 'table')
     expect(result).toContain('Alice')
