@@ -73,6 +73,26 @@ export function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, character => HTML_ESCAPE_MAP[character] ?? character)
 }
 
+export type OAuthCallbackResult =
+  | {kind: 'error'; description: string}
+  | {kind: 'invalid'}
+  | {kind: 'success'; code: string}
+
+export function parseOAuthCallback(url: URL, expectedState: string): OAuthCallbackResult {
+  if (url.searchParams.get('state') !== expectedState) return {kind: 'invalid'}
+
+  const error = url.searchParams.get('error')
+  if (error) {
+    return {
+      kind: 'error',
+      description: url.searchParams.get('error_description') ?? error,
+    }
+  }
+
+  const code = url.searchParams.get('code')
+  return code ? {kind: 'success', code} : {kind: 'invalid'}
+}
+
 function buildAuthUrl(clientId: string, codeChallenge: string, state: string, scopes?: string): string {
   const params = new URLSearchParams({
     response_type: 'code',
@@ -101,25 +121,25 @@ function waitForCallback(expectedState: string): Promise<string> {
         return
       }
 
-      const code = url.searchParams.get('code')
-      const state = url.searchParams.get('state')
-      const error = url.searchParams.get('error')
+      const callback = parseOAuthCallback(url, expectedState)
 
-      if (error) {
-        const desc = url.searchParams.get('error_description') ?? error
+      if (callback.kind === 'error') {
         res.writeHead(200, {
           'Content-Security-Policy': "default-src 'none'; base-uri 'none'; form-action 'none'",
           'Content-Type': 'text/html; charset=utf-8',
         })
-        res.end(`<html><body><h1>Authentication Failed</h1><p>${escapeHtml(desc)}</p><p>You can close this window.</p></body></html>`)
+        res.end(`<html><body><h1>Authentication Failed</h1><p>${escapeHtml(callback.description)}</p><p>You can close this window.</p></body></html>`)
         clearTimeout(timeout)
         server.close()
-        reject(new Error(`OAuth error: ${desc}`))
+        reject(new Error(`OAuth error: ${callback.description}`))
         return
       }
 
-      if (!code || state !== expectedState) {
-        res.writeHead(400, {'Content-Type': 'text/html'})
+      if (callback.kind === 'invalid') {
+        res.writeHead(400, {
+          'Content-Security-Policy': "default-src 'none'; base-uri 'none'; form-action 'none'",
+          'Content-Type': 'text/html; charset=utf-8',
+        })
         res.end('<html><body><h1>Invalid Request</h1><p>Missing code or state mismatch.</p></body></html>')
         return
       }
@@ -128,7 +148,7 @@ function waitForCallback(expectedState: string): Promise<string> {
       res.end('<html><body><h1>Success!</h1><p>You are now logged in. You can close this window.</p></body></html>')
       clearTimeout(timeout)
       server.close()
-      resolve(code)
+      resolve(callback.code)
     })
 
     server.listen(8742, '127.0.0.1', () => {
