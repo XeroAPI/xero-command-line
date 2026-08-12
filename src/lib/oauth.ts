@@ -6,6 +6,15 @@ const XERO_AUTH_BASE = 'https://login.xero.com/identity'
 const XERO_TOKEN_BASE = 'https://identity.xero.com'
 const REDIRECT_URI = 'http://localhost:8742/callback'
 const CALLBACK_TIMEOUT_MS = 120_000
+const OAUTH_AUTHORISATION_ERROR_CODES = new Set([
+  'invalid_request',
+  'unauthorized_client',
+  'access_denied',
+  'unsupported_response_type',
+  'invalid_scope',
+  'server_error',
+  'temporarily_unavailable',
+])
 
 const REQUIRED_OAUTH_SCOPES = ['openid', 'profile', 'email', 'offline_access']
 
@@ -72,16 +81,8 @@ function resolveScopes(scopes?: string): string {
   return [...new Set([...REQUIRED_OAUTH_SCOPES, ...requested])].join(' ')
 }
 
-function normaliseOAuthError(value: string): string {
-  const normalised = value
-    .replace(/[\u0000-\u001F\u007F]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-  return normalised.slice(0, 240) || 'The OAuth provider rejected the request.'
-}
-
 export type OAuthCallbackResult =
-  | {kind: 'error'; description: string}
+  | {kind: 'error'; code?: string}
   | {kind: 'invalid'}
   | {kind: 'success'; code: string}
 
@@ -92,7 +93,7 @@ export function parseOAuthCallback(url: URL, expectedState: string): OAuthCallba
   if (error) {
     return {
       kind: 'error',
-      description: url.searchParams.get('error_description') ?? error,
+      ...(OAUTH_AUTHORISATION_ERROR_CODES.has(error) ? {code: error} : {}),
     }
   }
 
@@ -140,7 +141,7 @@ export function waitForCallback(
         res.end(ERROR_HTML)
         clearTimeout(timeout)
         server.close()
-        reject(new Error(`OAuth error: ${normaliseOAuthError(callback.description)}`))
+        reject(new Error(callback.code ? `OAuth error: ${callback.code}` : 'OAuth provider rejected the request.'))
         return
       }
 

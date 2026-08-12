@@ -50,9 +50,14 @@ describe('parseOAuthCallback', () => {
       kind: 'success',
       code: 'code',
     })
-    expect(parseOAuthCallback(new URL('http://localhost/callback?state=expected&error=denied'), 'expected')).toEqual({
+    expect(
+      parseOAuthCallback(new URL('http://localhost/callback?state=expected&error=access_denied'), 'expected'),
+    ).toEqual({
       kind: 'error',
-      description: 'denied',
+      code: 'access_denied',
+    })
+    expect(parseOAuthCallback(new URL('http://localhost/callback?state=expected&error=custom'), 'expected')).toEqual({
+      kind: 'error',
     })
   })
 })
@@ -68,13 +73,12 @@ describe('waitForCallback', () => {
     await expect(result).resolves.toBe('valid-code')
   })
 
-  it('keeps provider-controlled error text out of browser HTML', async () => {
+  it('keeps provider-controlled error text out of browser and terminal output', async () => {
     const port = await freePort()
     const result = waitForCallback('expected', { port, timeoutMs: 2_000 })
-    const rejection = expect(result).rejects.toThrow(
-      'OAuth error: </p><script>alert(1)</script> next-line',
-    )
-    const metacharacters = '</p><script>alert(1)</script>\r\nnext-line'
+    const rejection = result.catch((error: unknown) => error)
+    const secret = 'SYNTHETIC-REFLECTED-TOKEN'
+    const metacharacters = `</p><script>alert(1)</script>\r\n${secret}`
     const response = await requestWhenReady(
       `http://127.0.0.1:${port}/callback?state=expected&error=denied&error_description=${encodeURIComponent(metacharacters)}`,
     )
@@ -82,8 +86,11 @@ describe('waitForCallback', () => {
 
     expect(html).toContain('Authentication Failed')
     expect(html).not.toContain('<script>')
-    expect(html).not.toContain('next-line')
-    await rejection
+    expect(html).not.toContain(secret)
+    const error = await rejection
+    expect(error).toBeInstanceOf(Error)
+    expect((error as Error).message).toBe('OAuth provider rejected the request.')
+    expect((error as Error).message).not.toContain(secret)
   })
 
   it('times out and closes the listener', async () => {
