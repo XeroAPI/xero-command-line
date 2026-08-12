@@ -67,20 +67,11 @@ function formatCsv(
 
 function neutralizeCsvFormula(value: string): string {
   // Spreadsheet applications can evaluate a CSV field that begins with a
-  // formula prefix. Prefix such text values so exports remain data when
-  // opened. '=' is always neutralized. '+', '-', and '@' are exempted when
-  // the rest of the value is purely alphanumeric (for example the code
-  // '-00123'), so benign identifiers round-trip byte-for-byte.
+  // formula prefix, including after leading whitespace. Prefix every such
+  // text value so exports remain data when opened. Numeric values bypass this
+  // function and retain their native representation.
   const trimmed = value.replace(/^[\t\r\n ]+/, '')
-  if (trimmed.startsWith('=')) {
-    return `'${value}`
-  }
-
-  if (/^[+\-@]/.test(trimmed) && !/^[+\-@][0-9A-Za-z]*$/.test(trimmed)) {
-    return `'${value}`
-  }
-
-  return value
+  return /^[=+\-@]/.test(trimmed) ? `'${value}` : value
 }
 
 function escapeCsv(value: string): string {

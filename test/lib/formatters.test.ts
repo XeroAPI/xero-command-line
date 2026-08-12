@@ -46,13 +46,13 @@ describe('formatOutput', () => {
     expect(result).toContain('"\' \t@SUM(1,1)"')
   })
 
-  it('round-trips alphanumeric codes with a leading sign unmodified', () => {
+  it('neutralizes formula prefixes on string identifiers', () => {
     const codeData = [{name: '-00123', age: 1, email: '+ABC123'}]
 
     const result = formatOutput(codeData, columns, 'csv')
     const lines = result.split('\n')
 
-    expect(lines[1]).toBe('-00123,1,+ABC123')
+    expect(lines[1]).toBe("'-00123,1,'+ABC123")
   })
 
   it('always neutralizes values starting with an equals sign', () => {
