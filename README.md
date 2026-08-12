@@ -299,8 +299,12 @@ xero manual-journals list
 xero manual-journals list --manual-journal-id 00000000-0000-0000-0000-000000000001
 xero manual-journals list --modified-after 2025-01-01
 
-# Create a manual journal (requires JSON file — minimum 2 lines)
-xero manual-journals create --file journal.json
+# Preview a manual journal without creating it
+xero manual-journals create --file journal.json --dry-run
+
+# Review the organisation tenant ID and redacted summary, then rerun the same
+# payload with the confirmation value printed by the dry run
+xero manual-journals create --file journal.json --confirm <confirmation>
 
 # Update a draft manual journal
 xero manual-journals update --file journal-update.json
@@ -347,10 +351,18 @@ xero payments list --invoice-id 00000000-0000-0000-0000-000000000001
 xero payments list --invoice-number INV-0001
 xero payments list --reference "Payment ref"
 
-# Create a payment
-xero payments create --invoice-id 00000000-0000-0000-0000-000000000001 --account-id 00000000-0000-0000-0000-000000000002 --amount 500
-xero payments create --file payment.json
+# Preview a payment without creating it
+xero payments create --invoice-id 00000000-0000-0000-0000-000000000001 --account-id 00000000-0000-0000-0000-000000000002 --amount 500 --dry-run
+
+# Rerun the same payload with the confirmation value printed by the dry run
+xero payments create --invoice-id 00000000-0000-0000-0000-000000000001 --account-id 00000000-0000-0000-0000-000000000002 --amount 500 --confirm <confirmation>
 ```
+
+Payment and manual-journal creation now require this two-run confirmation. The
+value is deterministically bound to the selected organisation tenant ID,
+operation and canonical payload. Changing any of them invalidates it. The value
+is not a secret, does not expire and is not a one-time or cross-process replay
+control; review every dry-run summary before executing it.
 
 ### Items
 
