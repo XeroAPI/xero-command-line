@@ -35,7 +35,7 @@
     "dev": "node --loader ts-node/esm bin/dev.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "postpack": "rm -f oclif.manifest.json",
+    "postpack": "node -e \"require('node:fs').rmSync('oclif.manifest.json',{force:true})\"",
     "prepack": "tsc -b && oclif manifest"
   },
   "oclif": {
