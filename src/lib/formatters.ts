@@ -107,9 +107,13 @@ export function formatDate(date: unknown): string {
   if (!date) return ''
   if (typeof date === 'string') {
     // Handle Xero's /Date(...)/ format
-    const msMatch = /\/Date\((\d+)\+\d+\)\//.exec(date)
+    const msMatch = /^\/Date\((-?\d+)(?:[+-]\d{4})?\)\/$/.exec(date)
     if (msMatch) {
-      return new Date(Number(msMatch[1])).toISOString().split('T')[0]
+      const milliseconds = Number(msMatch[1])
+      const parsed = new Date(milliseconds)
+      if (Number.isFinite(milliseconds) && !Number.isNaN(parsed.getTime())) {
+        return parsed.toISOString().split('T')[0]
+      }
     }
     // Already a date string
     if (/^\d{4}-\d{2}-\d{2}/.test(date)) {

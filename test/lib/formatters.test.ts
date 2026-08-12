@@ -83,6 +83,22 @@ describe('formatDate', () => {
   it('formats Xero /Date()/ format', () => {
     // Jan 1, 2025 00:00:00 UTC = 1735689600000
     expect(formatDate('/Date(1735689600000+0000)/')).toBe('2025-01-01')
+    expect(formatDate('/Date(1735689600000-1100)/')).toBe('2025-01-01')
+    expect(formatDate('/Date(1735689600000)/')).toBe('2025-01-01')
+    expect(formatDate('/Date(0+1000)/')).toBe('1970-01-01')
+    expect(formatDate('/Date(-86400000-1000)/')).toBe('1969-12-31')
+  })
+
+  it('rejects malformed or out-of-range Xero date wrappers gracefully', () => {
+    for (const malformed of [
+      '/Date(0+1000)/extra',
+      'prefix/Date(0+1000)/',
+      '/Date(0+100)/',
+      '/Date(not-a-number)/',
+      '/Date(999999999999999999999)/',
+    ]) {
+      expect(formatDate(malformed)).toBe(malformed)
+    }
   })
 
   it('formats Date objects', () => {

@@ -26,7 +26,7 @@ export default class ManualJournalsCreate extends BaseCommand {
     }
 
     const result = await this.xeroCall(flags, async (xero, tenantId) => {
-      const response = await xero.accountingApi.createManualJournals(tenantId, {manualJournals: [fileData as unknown as ManualJournal]})
+      const response = await xero.accountingApi.createManualJournals(tenantId, {manualJournals: [parsed.data as unknown as ManualJournal]})
       return response.body.manualJournals?.[0]
     })
 

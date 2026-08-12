@@ -1,6 +1,17 @@
 import {z} from 'zod'
 
-export const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format')
+export const dateSchema = z.string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format')
+  .refine((value) => {
+    const [year, month, day] = value.split('-').map(Number)
+    if (year < 1) return false
+    const candidate = new Date(0)
+    candidate.setUTCHours(0, 0, 0, 0)
+    candidate.setUTCFullYear(year, month - 1, day)
+    return candidate.getUTCFullYear() === year
+      && candidate.getUTCMonth() === month - 1
+      && candidate.getUTCDate() === day
+  }, 'Date must be a real calendar date')
 
 export const lineItemSchema = z.object({
   description: z.string().min(1, 'Description is required'),
@@ -96,20 +107,60 @@ export const creditNoteUpdateSchema = z.object({
 
 export const journalLineSchema = z.object({
   accountCode: z.string().min(1, 'Account code is required'),
-  lineAmount: z.number(),
+  lineAmount: z.number().finite('Line amount must be finite'),
   description: z.string().optional(),
   taxType: z.string().optional(),
 })
+
+function amountToMinorUnits(amount: number): bigint | null {
+  if (!Number.isFinite(amount)) return null
+  const match = /^(-?)(\d+)(?:\.(\d+))?(?:e([+-]?\d+))?$/i.exec(String(amount))
+  if (!match) return null
+  const [, sign, integer, fraction = '', exponentText = '0'] = match
+  const digits = BigInt(`${integer}${fraction}`)
+  const power = Number(exponentText) - fraction.length + 2
+  if (!Number.isSafeInteger(power)) return null
+
+  let minorUnits: bigint
+  if (power >= 0) {
+    minorUnits = digits * 10n ** BigInt(power)
+  } else {
+    const divisor = 10n ** BigInt(-power)
+    if (digits % divisor !== 0n) return null
+    minorUnits = digits / divisor
+  }
+  return sign === '-' ? -minorUnits : minorUnits
+}
+
+function journalLinesAreBalanced(lines: Array<{lineAmount: number}>): boolean {
+  const amounts = lines.map((line) => amountToMinorUnits(line.lineAmount))
+  return amounts.every((amount): amount is bigint => amount !== null)
+    && amounts.reduce((total, amount) => total + amount, 0n) === 0n
+}
+
+function addJournalBalanceIssue(
+  lines: Array<{lineAmount: number}>,
+  ctx: z.RefinementCtx,
+  path: string,
+): void {
+  if (!journalLinesAreBalanced(lines)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Journal lines must use exact cents and balance to zero',
+      path: [path],
+    })
+  }
+}
 
 export const journalCreateSchema = z.object({
   narration: z.string().min(1, 'Narration is required'),
   manualJournalLines: z.array(journalLineSchema).min(2, 'At least two journal lines are required'),
   date: dateSchema.optional(),
   lineAmountTypes: z.enum(['EXCLUSIVE', 'INCLUSIVE', 'NO_TAX']).optional(),
-  status: z.enum(['DRAFT', 'POSTED', 'DELETED', 'VOIDED', 'ARCHIVED']).optional(),
+  status: z.literal('DRAFT').default('DRAFT'),
   url: z.string().url().optional(),
   showOnCashBasisReports: z.boolean().optional(),
-})
+}).superRefine((journal, ctx) => addJournalBalanceIssue(journal.manualJournalLines, ctx, 'manualJournalLines'))
 
 export const journalUpdateSchema = z.object({
   manualJournalID: z.string().min(1, 'Manual journal ID is required'),
@@ -117,10 +168,10 @@ export const journalUpdateSchema = z.object({
   manualJournalLines: z.array(journalLineSchema).min(2, 'At least two journal lines are required'),
   date: dateSchema.optional(),
   lineAmountTypes: z.enum(['EXCLUSIVE', 'INCLUSIVE', 'NO_TAX']).optional(),
-  status: z.enum(['DRAFT', 'POSTED', 'DELETED', 'VOIDED', 'ARCHIVED']).optional(),
+  status: z.literal('DRAFT').optional(),
   url: z.string().url().optional(),
   showOnCashBasisReports: z.boolean().optional(),
-})
+}).superRefine((journal, ctx) => addJournalBalanceIssue(journal.manualJournalLines, ctx, 'manualJournalLines'))
 
 export const bankTransactionCreateSchema = z.object({
   type: z.enum(['RECEIVE', 'SPEND']),
@@ -266,16 +317,22 @@ export const accountFileUpdateSchema = z.object({
   accountID: z.string().min(1, 'Account ID is required'),
 }).passthrough()
 
+const journalFileLineSchema = z.object({
+  lineAmount: z.number().finite('Line amount must be finite'),
+}).passthrough()
+
 export const journalFileCreateSchema = z.object({
   narration: z.string().min(1, 'Narration is required'),
-  journalLines: z.array(z.object({}).passthrough()).min(2, 'At least two journal lines are required'),
-}).passthrough()
+  journalLines: z.array(journalFileLineSchema).min(2, 'At least two journal lines are required'),
+  status: z.literal('DRAFT').default('DRAFT'),
+}).passthrough().superRefine((journal, ctx) => addJournalBalanceIssue(journal.journalLines, ctx, 'journalLines'))
 
 export const journalFileUpdateSchema = z.object({
   manualJournalID: z.string().min(1, 'Manual journal ID is required'),
   narration: z.string().min(1, 'Narration is required'),
-  journalLines: z.array(z.object({}).passthrough()).min(2, 'At least two journal lines are required'),
-}).passthrough()
+  journalLines: z.array(journalFileLineSchema).min(2, 'At least two journal lines are required'),
+  status: z.literal('DRAFT').optional(),
+}).passthrough().superRefine((journal, ctx) => addJournalBalanceIssue(journal.journalLines, ctx, 'journalLines'))
 
 export const trackingOptionsFileUpdateSchema = z.object({
   trackingCategoryId: z.string().min(1, 'Tracking category ID is required'),

@@ -30,6 +30,9 @@ describe('dateSchema', () => {
   it('accepts valid YYYY-MM-DD dates', () => {
     expect(dateSchema.safeParse('2025-01-15').success).toBe(true)
     expect(dateSchema.safeParse('2025-12-31').success).toBe(true)
+    expect(dateSchema.safeParse('2024-02-29').success).toBe(true)
+    expect(dateSchema.safeParse('0001-01-01').success).toBe(true)
+    expect(dateSchema.safeParse('9999-12-31').success).toBe(true)
   })
 
   it('rejects invalid date formats', () => {
@@ -37,6 +40,17 @@ describe('dateSchema', () => {
     expect(dateSchema.safeParse('2025/01/15').success).toBe(false)
     expect(dateSchema.safeParse('not-a-date').success).toBe(false)
     expect(dateSchema.safeParse('').success).toBe(false)
+    for (const invalid of [
+      '0000-01-01',
+      '2023-02-29',
+      '2025-00-10',
+      '2025-13-10',
+      '2025-01-00',
+      '2025-01-32',
+      '10000-01-01',
+    ]) {
+      expect(dateSchema.safeParse(invalid).success).toBe(false)
+    }
   })
 })
 
@@ -190,6 +204,48 @@ describe('journalCreateSchema', () => {
         {accountCode: '200', lineAmount: 100},
         {accountCode: '400', lineAmount: -100},
       ],
+    }).success).toBe(false)
+  })
+
+  it('defaults to DRAFT and rejects consequential create statuses', () => {
+    const journal = {
+      narration: 'Test journal',
+      manualJournalLines: [
+        {accountCode: '200', lineAmount: 100},
+        {accountCode: '400', lineAmount: -100},
+      ],
+    }
+    const parsed = journalCreateSchema.safeParse(journal)
+
+    expect(parsed.success && parsed.data.status).toBe('DRAFT')
+    expect(journalCreateSchema.safeParse({...journal, status: 'POSTED'}).success).toBe(false)
+  })
+
+  it('rejects non-finite, sub-cent, and imbalanced line amounts', () => {
+    const journal = {
+      narration: 'Test journal',
+      manualJournalLines: [
+        {accountCode: '200', lineAmount: 100},
+        {accountCode: '400', lineAmount: -100},
+      ],
+    }
+
+    expect(journalCreateSchema.safeParse({
+      ...journal,
+      manualJournalLines: [{accountCode: '200', lineAmount: Number.POSITIVE_INFINITY}, ...journal.manualJournalLines],
+    }).success).toBe(false)
+    expect(journalCreateSchema.safeParse({
+      ...journal,
+      manualJournalLines: [{accountCode: '200', lineAmount: 1.001}, {accountCode: '400', lineAmount: -1.001}],
+    }).success).toBe(false)
+    expect(journalCreateSchema.safeParse({
+      ...journal,
+      manualJournalLines: [{accountCode: '200', lineAmount: 0.1}, {accountCode: '400', lineAmount: 0.2}, {accountCode: '500', lineAmount: -0.3}],
+    }).success).toBe(true)
+    expect(journalCreateSchema.safeParse({
+      ...journal,
+      lineAmountTypes: 'INCLUSIVE',
+      manualJournalLines: [{accountCode: '200', lineAmount: 100}, {accountCode: '400', lineAmount: -99.99}],
     }).success).toBe(false)
   })
 })
@@ -507,7 +563,9 @@ describe('journalFileCreateSchema', () => {
         {lineAmount: -100, accountCode: '400'},
       ],
     }
-    expect(journalFileCreateSchema.safeParse(data).success).toBe(true)
+    const parsed = journalFileCreateSchema.safeParse(data)
+    expect(parsed.success).toBe(true)
+    expect(parsed.success && parsed.data.status).toBe('DRAFT')
   })
 
   it('rejects missing narration', () => {
@@ -540,6 +598,30 @@ describe('journalFileCreateSchema', () => {
       expect((result.data.journalLines[1] as Record<string, unknown>).trackingCategories).toEqual([{name: 'Dept'}])
     }
   })
+
+  it('rejects POSTED, non-finite, sub-cent, and imbalanced file input', () => {
+    const journal = {
+      narration: 'Test',
+      journalLines: [
+        {lineAmount: 100, accountCode: '200'},
+        {lineAmount: -100, accountCode: '400'},
+      ],
+    }
+
+    expect(journalFileCreateSchema.safeParse({...journal, status: 'POSTED'}).success).toBe(false)
+    expect(journalFileCreateSchema.safeParse({
+      ...journal,
+      journalLines: [{lineAmount: Number.NEGATIVE_INFINITY}, {lineAmount: 100}, {lineAmount: -100}],
+    }).success).toBe(false)
+    expect(journalFileCreateSchema.safeParse({
+      ...journal,
+      journalLines: [{lineAmount: 1.001}, {lineAmount: -1.001}],
+    }).success).toBe(false)
+    expect(journalFileCreateSchema.safeParse({
+      ...journal,
+      journalLines: [{lineAmount: 100}, {lineAmount: -99.99}],
+    }).success).toBe(false)
+  })
 })
 
 describe('journalFileUpdateSchema', () => {
@@ -562,6 +644,21 @@ describe('journalFileUpdateSchema', () => {
         {lineAmount: 100, accountCode: '200'},
         {lineAmount: -100, accountCode: '400'},
       ],
+    }).success).toBe(false)
+  })
+
+  it('allows only DRAFT and requires exact-cent balance on update', () => {
+    const journal = {
+      manualJournalID: 'mj-123',
+      narration: 'Updated',
+      journalLines: [{lineAmount: 50}, {lineAmount: -50}],
+    }
+
+    expect(journalFileUpdateSchema.safeParse({...journal, status: 'DRAFT'}).success).toBe(true)
+    expect(journalFileUpdateSchema.safeParse({...journal, status: 'POSTED'}).success).toBe(false)
+    expect(journalFileUpdateSchema.safeParse({
+      ...journal,
+      journalLines: [{lineAmount: 50}, {lineAmount: -49.99}],
     }).success).toBe(false)
   })
 })
