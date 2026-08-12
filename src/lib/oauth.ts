@@ -9,13 +9,16 @@ const CALLBACK_TIMEOUT_MS = 120_000
 
 const REQUIRED_OAUTH_SCOPES = ['openid', 'profile', 'email', 'offline_access']
 
-const HTML_ESCAPE_MAP: Record<string, string> = {
-  '&': '&amp;',
-  '<': '&lt;',
-  '>': '&gt;',
-  '"': '&quot;',
-  "'": '&#39;',
+const CALLBACK_HEADERS = {
+  'Content-Security-Policy': "default-src 'none'; base-uri 'none'; form-action 'none'",
+  'Content-Type': 'text/html; charset=utf-8',
 }
+const ERROR_HTML =
+  '<html><body><h1>Authentication Failed</h1><p>Return to the CLI for details. You can close this window.</p></body></html>'
+const INVALID_HTML =
+  '<html><body><h1>Invalid Request</h1><p>The callback could not be validated. You can close this window.</p></body></html>'
+const SUCCESS_HTML =
+  '<html><body><h1>Success!</h1><p>You are now logged in. You can close this window.</p></body></html>'
 
 const SCOPES = [
   ...REQUIRED_OAUTH_SCOPES,
@@ -69,8 +72,12 @@ function resolveScopes(scopes?: string): string {
   return [...new Set([...REQUIRED_OAUTH_SCOPES, ...requested])].join(' ')
 }
 
-export function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, character => HTML_ESCAPE_MAP[character] ?? character)
+function normaliseOAuthError(value: string): string {
+  const normalised = value
+    .replace(/[\u0000-\u001F\u007F]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return normalised.slice(0, 240) || 'The OAuth provider rejected the request.'
 }
 
 export type OAuthCallbackResult =
@@ -106,15 +113,20 @@ function buildAuthUrl(clientId: string, codeChallenge: string, state: string, sc
   return `${XERO_AUTH_BASE}/connect/authorize?${params.toString()}`
 }
 
-function waitForCallback(expectedState: string): Promise<string> {
+export function waitForCallback(
+  expectedState: string,
+  options: {port?: number; timeoutMs?: number} = {},
+): Promise<string> {
+  const port = options.port ?? 8742
+  const timeoutMs = options.timeoutMs ?? CALLBACK_TIMEOUT_MS
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       server.close()
       reject(new Error('OAuth callback timed out after 2 minutes. Please try again.'))
-    }, CALLBACK_TIMEOUT_MS)
+    }, timeoutMs)
 
     const server = createServer((req: IncomingMessage, res: ServerResponse) => {
-      const url = new URL(req.url ?? '/', `http://localhost:8742`)
+      const url = new URL(req.url ?? '/', `http://127.0.0.1:${port}`)
       if (url.pathname !== '/callback') {
         res.writeHead(404)
         res.end('Not found')
@@ -124,34 +136,28 @@ function waitForCallback(expectedState: string): Promise<string> {
       const callback = parseOAuthCallback(url, expectedState)
 
       if (callback.kind === 'error') {
-        res.writeHead(200, {
-          'Content-Security-Policy': "default-src 'none'; base-uri 'none'; form-action 'none'",
-          'Content-Type': 'text/html; charset=utf-8',
-        })
-        res.end(`<html><body><h1>Authentication Failed</h1><p>${escapeHtml(callback.description)}</p><p>You can close this window.</p></body></html>`)
+        res.writeHead(200, CALLBACK_HEADERS)
+        res.end(ERROR_HTML)
         clearTimeout(timeout)
         server.close()
-        reject(new Error(`OAuth error: ${callback.description}`))
+        reject(new Error(`OAuth error: ${normaliseOAuthError(callback.description)}`))
         return
       }
 
       if (callback.kind === 'invalid') {
-        res.writeHead(400, {
-          'Content-Security-Policy': "default-src 'none'; base-uri 'none'; form-action 'none'",
-          'Content-Type': 'text/html; charset=utf-8',
-        })
-        res.end('<html><body><h1>Invalid Request</h1><p>Missing code or state mismatch.</p></body></html>')
+        res.writeHead(400, CALLBACK_HEADERS)
+        res.end(INVALID_HTML)
         return
       }
 
-      res.writeHead(200, {'Content-Type': 'text/html'})
-      res.end('<html><body><h1>Success!</h1><p>You are now logged in. You can close this window.</p></body></html>')
+      res.writeHead(200, CALLBACK_HEADERS)
+      res.end(SUCCESS_HTML)
       clearTimeout(timeout)
       server.close()
       resolve(callback.code)
     })
 
-    server.listen(8742, '127.0.0.1', () => {
+    server.listen(port, '127.0.0.1', () => {
       // Server ready
     })
 
