@@ -6,6 +6,8 @@ const XERO_AUTH_BASE = 'https://login.xero.com/identity'
 const XERO_TOKEN_BASE = 'https://identity.xero.com'
 const REDIRECT_URI = 'http://localhost:8742/callback'
 const CALLBACK_TIMEOUT_MS = 120_000
+const TOKEN_REQUEST_TIMEOUT_MS = 10_000
+const TOKEN_RESPONSE_MAX_BYTES = 64 * 1024
 
 const REQUIRED_OAUTH_SCOPES = ['openid', 'profile', 'email', 'offline_access']
 
@@ -40,15 +42,15 @@ interface TokenSet {
 }
 
 interface OAuthErrorResponse {
-  error?: string
-  error_description?: string
+  error?: 'invalid_grant'
 }
+
+class TokenResponseTooLargeError extends Error {}
 
 export class OAuthTokenRefreshError extends Error {
   constructor(
     public readonly statusCode: number,
     public readonly oauthError?: string,
-    public readonly oauthErrorDescription?: string,
   ) {
     super(
       oauthError
@@ -66,13 +68,62 @@ function parseOAuthErrorResponse(responseText: string): OAuthErrorResponse {
 
     const response = parsed as Record<string, unknown>
     return {
-      error: typeof response.error === 'string' ? response.error : undefined,
-      error_description: typeof response.error_description === 'string'
-        ? response.error_description
-        : undefined,
+      error: response.error === 'invalid_grant' ? 'invalid_grant' : undefined,
     }
   } catch {
     return {}
+  }
+}
+
+async function readBoundedResponse(response: Response): Promise<string> {
+  const declaredLength = Number(response.headers.get('content-length'))
+  if (Number.isFinite(declaredLength) && declaredLength > TOKEN_RESPONSE_MAX_BYTES) {
+    await response.body?.cancel()
+    throw new TokenResponseTooLargeError()
+  }
+  if (!response.body) return ''
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let bytesRead = 0
+  let text = ''
+  try {
+    while (true) {
+      const {done, value} = await reader.read()
+      if (done) return text + decoder.decode()
+      bytesRead += value.byteLength
+      if (bytesRead > TOKEN_RESPONSE_MAX_BYTES) {
+        await reader.cancel()
+        throw new TokenResponseTooLargeError()
+      }
+      text += decoder.decode(value, {stream: true})
+    }
+  } finally {
+    reader.releaseLock()
+  }
+}
+
+function parseTokenResponse(responseText: string): TokenSet {
+  try {
+    const parsed: unknown = JSON.parse(responseText)
+    if (!parsed || typeof parsed !== 'object') throw new Error()
+    const token = parsed as Record<string, unknown>
+    if (typeof token.access_token !== 'string' || token.access_token.length === 0) throw new Error()
+
+    const result: TokenSet = {access_token: token.access_token}
+    for (const key of ['refresh_token', 'id_token', 'token_type', 'scope'] as const) {
+      const value = token[key]
+      if (value !== undefined && typeof value !== 'string') throw new Error()
+      if (value !== undefined) result[key] = value
+    }
+    for (const key of ['expires_in', 'expires_at'] as const) {
+      const value = token[key]
+      if (value !== undefined && (typeof value !== 'number' || !Number.isFinite(value))) throw new Error()
+      if (value !== undefined) result[key] = value
+    }
+    return result
+  } catch {
+    throw new Error('Token refresh returned an invalid response.')
   }
 }
 
@@ -264,21 +315,35 @@ export async function refreshAccessToken(
     refresh_token: refreshToken,
   })
 
-  const response = await fetch(`${XERO_TOKEN_BASE}/connect/token`, {
-    method: 'POST',
-    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-    body: body.toString(),
-  })
+  const signal = AbortSignal.timeout(TOKEN_REQUEST_TIMEOUT_MS)
+  let response: Response
+  try {
+    response = await fetch(`${XERO_TOKEN_BASE}/connect/token`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: body.toString(),
+      redirect: 'error',
+      signal,
+    })
+  } catch {
+    throw new Error(signal.aborted ? 'Token refresh request timed out.' : 'Token refresh request failed.')
+  }
 
-  if (!response.ok) {
-    const text = await response.text()
-    const oauthError = parseOAuthErrorResponse(text)
-    throw new OAuthTokenRefreshError(
-      response.status,
-      oauthError.error,
-      oauthError.error_description,
+  let text: string
+  try {
+    text = await readBoundedResponse(response)
+  } catch (error) {
+    throw new Error(
+      error instanceof TokenResponseTooLargeError
+        ? 'Token refresh response exceeded the safety limit.'
+        : 'Token refresh response could not be read.',
     )
   }
 
-  return response.json() as Promise<TokenSet>
+  if (!response.ok) {
+    const oauthError = parseOAuthErrorResponse(text)
+    throw new OAuthTokenRefreshError(response.status, oauthError.error)
+  }
+
+  return parseTokenResponse(text)
 }
