@@ -70,8 +70,7 @@ function neutralizeCsvFormula(value: string): string {
   // formula prefix, including after leading whitespace. Prefix every such
   // text value so exports remain data when opened. Numeric values bypass this
   // function and retain their native representation.
-  const trimmed = value.replace(/^[\t\r\n ]+/, '')
-  return /^[=+\-@]/.test(trimmed) ? `'${value}` : value
+  return value.replace(/^([\t\r\n ]*)(?=[=+\-@])/, "$1'")
 }
 
 function escapeCsv(value: string): string {

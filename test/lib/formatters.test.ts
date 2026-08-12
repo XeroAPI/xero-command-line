@@ -43,7 +43,7 @@ describe('formatOutput', () => {
 
     expect(result).toContain(`"'=HYPERLINK(""https://example.test"", ""click"")"`)
     expect(result).toContain('-42')
-    expect(result).toContain('"\' \t@SUM(1,1)"')
+    expect(result).toContain('" \t\'@SUM(1,1)"')
   })
 
   it('neutralizes formula prefixes on string identifiers', () => {
@@ -61,6 +61,22 @@ describe('formatOutput', () => {
     const result = formatOutput(equalsData, columns, 'csv')
 
     expect(result).toContain(`'=00123`)
+  })
+
+  it.each(['=', '+', '-', '@'])('places the apostrophe immediately before a %s formula prefix', prefix => {
+    for (const leading of [' ', '\t', '\r', '\n']) {
+      const result = formatOutput([{name: `${leading}${prefix}SUM(1)`}], [{key: 'name', header: 'Name'}], 'csv')
+      const neutralized = `${leading}'${prefix}SUM(1)`
+      const expected = /[\r\n]/.test(neutralized) ? `"${neutralized}"` : neutralized
+
+      expect(result).toBe(`Name\n${expected}`)
+    }
+  })
+
+  it('quotes a CSV field containing only a bare carriage return', () => {
+    const result = formatOutput([{name: 'before\rafter'}], [{key: 'name', header: 'Name'}], 'csv')
+
+    expect(result).toBe('Name\n"before\rafter"')
   })
 
   it('outputs table format', () => {
