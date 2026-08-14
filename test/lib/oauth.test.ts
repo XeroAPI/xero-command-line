@@ -63,11 +63,24 @@ describe('parseOAuthCallback', () => {
 })
 
 describe('waitForCallback', () => {
-  it('ignores wrong or missing state traffic and accepts a later valid callback', async () => {
+  it('rejects hostile wrong-state errors before accepting a later valid callback', async () => {
     const port = await freePort()
     const result = waitForCallback('expected', { port, timeoutMs: 2_000 })
+    const reflected = 'SYNTHETIC-WRONG-STATE-TOKEN'
+    const hostile = `</p><script>alert(1)</script>\r\n${reflected}`
 
-    expect((await requestWhenReady(`http://127.0.0.1:${port}/callback?state=wrong&code=bad`)).status).toBe(400)
+    const wrongState = await requestWhenReady(
+      `http://127.0.0.1:${port}/callback?state=wrong&error=access_denied&error_description=${encodeURIComponent(hostile)}`,
+    )
+    const wrongStateHtml = await wrongState.text()
+
+    expect(wrongState.status).toBe(400)
+    expect(wrongState.headers.get('content-security-policy')).toBe(
+      "default-src 'none'; base-uri 'none'; form-action 'none'",
+    )
+    expect(wrongStateHtml).toContain('Invalid Request')
+    expect(wrongStateHtml).not.toContain('<script>')
+    expect(wrongStateHtml).not.toContain(reflected)
     expect((await fetch(`http://127.0.0.1:${port}/callback?code=missing-state`)).status).toBe(400)
     expect((await fetch(`http://127.0.0.1:${port}/callback?state=expected&code=valid-code`)).status).toBe(200)
     await expect(result).resolves.toBe('valid-code')
