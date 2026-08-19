@@ -105,13 +105,6 @@ export const creditNoteUpdateSchema = z.object({
   reference: z.string().optional(),
 })
 
-export const journalLineSchema = z.object({
-  accountCode: z.string().min(1, 'Account code is required'),
-  lineAmount: z.number().finite('Line amount must be finite'),
-  description: z.string().optional(),
-  taxType: z.string().optional(),
-})
-
 function amountToMinorUnits(amount: number): bigint | null {
   if (!Number.isFinite(amount)) return null
   const match = /^(-?)(\d+)(?:\.(\d+))?(?:e([+-]?\d+))?$/i.exec(String(amount))
@@ -151,27 +144,6 @@ function addJournalBalanceIssue(
     })
   }
 }
-
-export const journalCreateSchema = z.object({
-  narration: z.string().min(1, 'Narration is required'),
-  manualJournalLines: z.array(journalLineSchema).min(2, 'At least two journal lines are required'),
-  date: dateSchema.optional(),
-  lineAmountTypes: z.enum(['EXCLUSIVE', 'INCLUSIVE', 'NO_TAX']).optional(),
-  status: z.literal('DRAFT').default('DRAFT'),
-  url: z.string().url().optional(),
-  showOnCashBasisReports: z.boolean().optional(),
-}).superRefine((journal, ctx) => addJournalBalanceIssue(journal.manualJournalLines, ctx, 'manualJournalLines'))
-
-export const journalUpdateSchema = z.object({
-  manualJournalID: z.string().min(1, 'Manual journal ID is required'),
-  narration: z.string().min(1, 'Narration is required'),
-  manualJournalLines: z.array(journalLineSchema).min(2, 'At least two journal lines are required'),
-  date: dateSchema.optional(),
-  lineAmountTypes: z.enum(['EXCLUSIVE', 'INCLUSIVE', 'NO_TAX']).optional(),
-  status: z.literal('DRAFT').optional(),
-  url: z.string().url().optional(),
-  showOnCashBasisReports: z.boolean().optional(),
-}).superRefine((journal, ctx) => addJournalBalanceIssue(journal.manualJournalLines, ctx, 'manualJournalLines'))
 
 export const bankTransactionCreateSchema = z.object({
   type: z.enum(['RECEIVE', 'SPEND']),
@@ -321,17 +293,21 @@ const journalFileLineSchema = z.object({
   lineAmount: z.number().finite('Line amount must be finite'),
 }).passthrough()
 
+const manualJournalStatusSchema = z.enum(['DRAFT', 'POSTED', 'DELETED', 'VOIDED', 'ARCHIVED'])
+
 export const journalFileCreateSchema = z.object({
   narration: z.string().min(1, 'Narration is required'),
   journalLines: z.array(journalFileLineSchema).min(2, 'At least two journal lines are required'),
-  status: z.literal('DRAFT').default('DRAFT'),
+  date: dateSchema.optional(),
+  status: manualJournalStatusSchema.default('DRAFT'),
 }).passthrough().superRefine((journal, ctx) => addJournalBalanceIssue(journal.journalLines, ctx, 'journalLines'))
 
 export const journalFileUpdateSchema = z.object({
   manualJournalID: z.string().min(1, 'Manual journal ID is required'),
   narration: z.string().min(1, 'Narration is required'),
   journalLines: z.array(journalFileLineSchema).min(2, 'At least two journal lines are required'),
-  status: z.literal('DRAFT').optional(),
+  date: dateSchema.optional(),
+  status: manualJournalStatusSchema.optional(),
 }).passthrough().superRefine((journal, ctx) => addJournalBalanceIssue(journal.journalLines, ctx, 'journalLines'))
 
 export const trackingOptionsFileUpdateSchema = z.object({

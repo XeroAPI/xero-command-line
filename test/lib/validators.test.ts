@@ -5,7 +5,6 @@ import {
   invoiceCreateSchema,
   contactCreateSchema,
   paymentCreateSchema,
-  journalCreateSchema,
   formatZodError,
   contactFileCreateSchema,
   contactFileUpdateSchema,
@@ -173,79 +172,6 @@ describe('paymentCreateSchema', () => {
       invoiceId: 'inv-123',
       accountId: 'acc-456',
       amount: -100,
-    }).success).toBe(false)
-  })
-})
-
-describe('journalCreateSchema', () => {
-  it('accepts valid journal with balanced lines', () => {
-    expect(journalCreateSchema.safeParse({
-      narration: 'Test journal',
-      manualJournalLines: [
-        {accountCode: '200', lineAmount: 100},
-        {accountCode: '400', lineAmount: -100},
-      ],
-    }).success).toBe(true)
-  })
-
-  it('rejects fewer than 2 lines', () => {
-    expect(journalCreateSchema.safeParse({
-      narration: 'Test journal',
-      manualJournalLines: [
-        {accountCode: '200', lineAmount: 100},
-      ],
-    }).success).toBe(false)
-  })
-
-  it('rejects empty narration', () => {
-    expect(journalCreateSchema.safeParse({
-      narration: '',
-      manualJournalLines: [
-        {accountCode: '200', lineAmount: 100},
-        {accountCode: '400', lineAmount: -100},
-      ],
-    }).success).toBe(false)
-  })
-
-  it('defaults to DRAFT and rejects consequential create statuses', () => {
-    const journal = {
-      narration: 'Test journal',
-      manualJournalLines: [
-        {accountCode: '200', lineAmount: 100},
-        {accountCode: '400', lineAmount: -100},
-      ],
-    }
-    const parsed = journalCreateSchema.safeParse(journal)
-
-    expect(parsed.success && parsed.data.status).toBe('DRAFT')
-    expect(journalCreateSchema.safeParse({...journal, status: 'POSTED'}).success).toBe(false)
-  })
-
-  it('rejects non-finite, sub-cent, and imbalanced line amounts', () => {
-    const journal = {
-      narration: 'Test journal',
-      manualJournalLines: [
-        {accountCode: '200', lineAmount: 100},
-        {accountCode: '400', lineAmount: -100},
-      ],
-    }
-
-    expect(journalCreateSchema.safeParse({
-      ...journal,
-      manualJournalLines: [{accountCode: '200', lineAmount: Number.POSITIVE_INFINITY}, ...journal.manualJournalLines],
-    }).success).toBe(false)
-    expect(journalCreateSchema.safeParse({
-      ...journal,
-      manualJournalLines: [{accountCode: '200', lineAmount: 1.001}, {accountCode: '400', lineAmount: -1.001}],
-    }).success).toBe(false)
-    expect(journalCreateSchema.safeParse({
-      ...journal,
-      manualJournalLines: [{accountCode: '200', lineAmount: 0.1}, {accountCode: '400', lineAmount: 0.2}, {accountCode: '500', lineAmount: -0.3}],
-    }).success).toBe(true)
-    expect(journalCreateSchema.safeParse({
-      ...journal,
-      lineAmountTypes: 'INCLUSIVE',
-      manualJournalLines: [{accountCode: '200', lineAmount: 100}, {accountCode: '400', lineAmount: -99.99}],
     }).success).toBe(false)
   })
 })
@@ -599,7 +525,7 @@ describe('journalFileCreateSchema', () => {
     }
   })
 
-  it('rejects POSTED, non-finite, sub-cent, and imbalanced file input', () => {
+  it('rejects non-finite, sub-cent, and imbalanced file input', () => {
     const journal = {
       narration: 'Test',
       journalLines: [
@@ -608,7 +534,6 @@ describe('journalFileCreateSchema', () => {
       ],
     }
 
-    expect(journalFileCreateSchema.safeParse({...journal, status: 'POSTED'}).success).toBe(false)
     expect(journalFileCreateSchema.safeParse({
       ...journal,
       journalLines: [{lineAmount: Number.NEGATIVE_INFINITY}, {lineAmount: 100}, {lineAmount: -100}],
@@ -619,8 +544,43 @@ describe('journalFileCreateSchema', () => {
     }).success).toBe(false)
     expect(journalFileCreateSchema.safeParse({
       ...journal,
+      journalLines: [{lineAmount: 0.1}, {lineAmount: 0.2}, {lineAmount: -0.3}],
+    }).success).toBe(true)
+    expect(journalFileCreateSchema.safeParse({
+      ...journal,
       journalLines: [{lineAmount: 100}, {lineAmount: -99.99}],
     }).success).toBe(false)
+  })
+
+  it('defaults to DRAFT while still allowing the other Xero statuses', () => {
+    const journal = {
+      narration: 'Test',
+      journalLines: [
+        {lineAmount: 100, accountCode: '200'},
+        {lineAmount: -100, accountCode: '400'},
+      ],
+    }
+    const parsed = journalFileCreateSchema.safeParse(journal)
+
+    expect(parsed.success && parsed.data.status).toBe('DRAFT')
+    for (const status of ['DRAFT', 'POSTED', 'DELETED', 'VOIDED', 'ARCHIVED']) {
+      expect(journalFileCreateSchema.safeParse({...journal, status}).success).toBe(true)
+    }
+    expect(journalFileCreateSchema.safeParse({...journal, status: 'SOMETHING_ELSE'}).success).toBe(false)
+  })
+
+  it('validates the journal date', () => {
+    const journal = {
+      narration: 'Test',
+      journalLines: [
+        {lineAmount: 100, accountCode: '200'},
+        {lineAmount: -100, accountCode: '400'},
+      ],
+    }
+
+    expect(journalFileCreateSchema.safeParse({...journal, date: '2025-04-03'}).success).toBe(true)
+    expect(journalFileCreateSchema.safeParse({...journal, date: '03/04/2025'}).success).toBe(false)
+    expect(journalFileCreateSchema.safeParse({...journal, date: '2025-02-30'}).success).toBe(false)
   })
 })
 
@@ -647,19 +607,33 @@ describe('journalFileUpdateSchema', () => {
     }).success).toBe(false)
   })
 
-  it('allows only DRAFT and requires exact-cent balance on update', () => {
+  it('allows every Xero status and requires exact-cent balance on update', () => {
     const journal = {
       manualJournalID: 'mj-123',
       narration: 'Updated',
       journalLines: [{lineAmount: 50}, {lineAmount: -50}],
     }
 
-    expect(journalFileUpdateSchema.safeParse({...journal, status: 'DRAFT'}).success).toBe(true)
-    expect(journalFileUpdateSchema.safeParse({...journal, status: 'POSTED'}).success).toBe(false)
+    for (const status of ['DRAFT', 'POSTED', 'DELETED', 'VOIDED', 'ARCHIVED']) {
+      expect(journalFileUpdateSchema.safeParse({...journal, status}).success).toBe(true)
+    }
+    expect(journalFileUpdateSchema.safeParse({...journal, status: 'SOMETHING_ELSE'}).success).toBe(false)
     expect(journalFileUpdateSchema.safeParse({
       ...journal,
       journalLines: [{lineAmount: 50}, {lineAmount: -49.99}],
     }).success).toBe(false)
+  })
+
+  it('validates the journal date on update', () => {
+    const journal = {
+      manualJournalID: 'mj-123',
+      narration: 'Updated',
+      journalLines: [{lineAmount: 50}, {lineAmount: -50}],
+    }
+
+    expect(journalFileUpdateSchema.safeParse({...journal, date: '2025-04-03'}).success).toBe(true)
+    expect(journalFileUpdateSchema.safeParse({...journal, date: '03/04/2025'}).success).toBe(false)
+    expect(journalFileUpdateSchema.safeParse({...journal, date: '2025-02-30'}).success).toBe(false)
   })
 })
 
