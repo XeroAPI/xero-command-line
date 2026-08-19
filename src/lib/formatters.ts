@@ -57,8 +57,7 @@ function formatCsv(
     columns
       .map(col => {
         const value = getNestedValue(row, col.key)
-        const stringValue = String(value ?? '')
-        return escapeCsv(typeof value === 'string' ? neutralizeCsvFormula(stringValue) : stringValue)
+        return escapeCsv(neutralizeCsvFormula(String(value ?? '')))
       })
       .join(','),
   )
@@ -68,9 +67,18 @@ function formatCsv(
 function neutralizeCsvFormula(value: string): string {
   // Spreadsheet applications can evaluate a CSV field that begins with a
   // formula prefix, including after leading whitespace. Prefix every such
-  // text value so exports remain data when opened. Numeric values bypass this
-  // function and retain their native representation.
+  // text value so exports remain data when opened.
+  //
+  // Xero returns report amounts as JSON strings, so a value that reads as a
+  // number is data rather than a formula. Leaving those alone keeps a figure
+  // like -1850.00 summable instead of exporting it as text.
+  if (isNumericValue(value)) return value
   return value.replace(/^([\t\r\n ]*)(?=[=+\-@])/, "$1'")
+}
+
+function isNumericValue(value: string): boolean {
+  const trimmed = value.trim()
+  return trimmed.length > 0 && Number.isFinite(Number(trimmed))
 }
 
 function escapeCsv(value: string): string {

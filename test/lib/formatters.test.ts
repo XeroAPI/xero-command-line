@@ -46,13 +46,22 @@ describe('formatOutput', () => {
     expect(result).toContain('" \t\'@SUM(1,1)"')
   })
 
-  it('neutralizes formula prefixes on string identifiers', () => {
-    const codeData = [{name: '-00123', age: 1, email: '+ABC123'}]
+  it('neutralizes formula prefixes on non-numeric string identifiers', () => {
+    const codeData = [{name: '-00123-A', age: 1, email: '+ABC123'}]
 
     const result = formatOutput(codeData, columns, 'csv')
     const lines = result.split('\n')
 
-    expect(lines[1]).toBe("'-00123,1,'+ABC123")
+    expect(lines[1]).toBe("'-00123-A,1,'+ABC123")
+  })
+
+  it('leaves signed numeric strings as numbers', () => {
+    const amountData = [{name: '-1500.00', age: '+42', email: ' -1850.00'}]
+
+    const result = formatOutput(amountData, columns, 'csv')
+    const lines = result.split('\n')
+
+    expect(lines[1]).toBe('-1500.00,+42, -1850.00')
   })
 
   it('always neutralizes values starting with an equals sign', () => {
