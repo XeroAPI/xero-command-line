@@ -82,7 +82,12 @@ describe('waitForCallback', () => {
     expect(wrongStateHtml).not.toContain('<script>')
     expect(wrongStateHtml).not.toContain(reflected)
     expect((await fetch(`http://127.0.0.1:${port}/callback?code=missing-state`)).status).toBe(400)
-    expect((await fetch(`http://127.0.0.1:${port}/callback?state=expected&code=valid-code`)).status).toBe(200)
+    const success = await fetch(`http://127.0.0.1:${port}/callback?state=expected&code=valid-code`)
+    expect(success.status).toBe(200)
+    expect(success.headers.get('content-security-policy')).toBe(
+      "default-src 'none'; base-uri 'none'; form-action 'none'",
+    )
+    expect(success.headers.get('content-type')).toBe('text/html; charset=utf-8')
     await expect(result).resolves.toBe('valid-code')
   })
 
@@ -96,6 +101,12 @@ describe('waitForCallback', () => {
       `http://127.0.0.1:${port}/callback?state=expected&error=denied&error_description=${encodeURIComponent(metacharacters)}`,
     )
     const html = await response.text()
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-security-policy')).toBe(
+      "default-src 'none'; base-uri 'none'; form-action 'none'",
+    )
+    expect(response.headers.get('content-type')).toBe('text/html; charset=utf-8')
 
     expect(html).toContain('Authentication Failed')
     expect(html).not.toContain('<script>')
