@@ -1,7 +1,8 @@
 import {Flags} from '@oclif/core'
 import {BaseCommand} from '../../base-command.js'
 import {contactUpdateSchema, contactFileUpdateSchema, formatZodError} from '../../lib/validators.js'
-import type {Contact, Phone, Address} from 'xero-node'
+import {Phone} from 'xero-node'
+import type {Contact, Address} from 'xero-node'
 
 export default class ContactsUpdate extends BaseCommand {
   static override description = 'Update a contact in Xero'
@@ -67,7 +68,9 @@ export default class ContactsUpdate extends BaseCommand {
           emailAddress: parsed.data.email,
           firstName: parsed.data.firstName,
           lastName: parsed.data.lastName,
-          phones: parsed.data.phone ? [{phoneNumber: parsed.data.phone} as Phone] : undefined,
+          phones: parsed.data.phone
+            ? [{phoneNumber: parsed.data.phone, phoneType: Phone.PhoneTypeEnum.DEFAULT}]
+            : undefined,
           addresses: parsed.data.address ? [parsed.data.address as Address] : undefined,
         }
         const response = await xero.accountingApi.updateContact(tenantId, parsed.data.contactId, {contacts: [contact]})

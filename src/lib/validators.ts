@@ -57,7 +57,7 @@ export const contactUpdateSchema = z.object({
 }).refine(
   data => data.name !== undefined ||
     data.email !== undefined ||
-    data.phone !== undefined ||
+    (data.phone !== undefined && data.phone !== '') ||
     data.firstName !== undefined ||
     data.lastName !== undefined ||
     data.address !== undefined,

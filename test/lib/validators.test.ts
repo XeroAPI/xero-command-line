@@ -156,6 +156,13 @@ describe('contactUpdateSchema', () => {
   it('rejects an update with no mutable fields', () => {
     expect(contactUpdateSchema.safeParse({contactId: 'contact-123'}).success).toBe(false)
   })
+
+  it('rejects an update whose only field is an empty phone', () => {
+    expect(contactUpdateSchema.safeParse({
+      contactId: 'contact-123',
+      phone: '',
+    }).success).toBe(false)
+  })
 })
 
 describe('paymentCreateSchema', () => {
