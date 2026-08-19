@@ -43,8 +43,10 @@ export default class ReportsAgedPayables extends BaseCommand {
       return
     }
 
-    this.log(`\n${report.reportName as string}`)
-    this.log('')
+    if (this.getOutputFormat(flags) === 'table') {
+      this.log(`\n${report.reportName as string}`)
+      this.log('')
+    }
 
     const rows = this.extractReportRows(report)
     this.outputFormatted(
