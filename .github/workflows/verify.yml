@@ -11,8 +11,14 @@ permissions:
 
 jobs:
   verify:
-    name: verify
+    name: verify (node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The declared engines floor and the current release. Keep in sync with
+        # engines.node in package.json.
+        node-version: ["20.19.0", "24"]
     steps:
       - name: Check out source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -20,7 +26,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: "22"
+          node-version: ${{ matrix.node-version }}
           cache: npm
 
       - name: Install locked dependencies
@@ -32,8 +38,20 @@ jobs:
       - name: Run tests
         run: npm test
 
-      # Scoped to runtime dependencies so PRs only fail on advisories that
-      # affect the published CLI. The full tree (including devDependencies)
-      # is audited on a schedule in audit.yml.
-      - name: Audit runtime dependencies
+      # Report-only. A new advisory against a transitive dependency must not
+      # turn every open pull request red without a code change. The full tree
+      # is audited on a schedule in audit.yml, where a failure is actionable.
+      - name: Audit runtime dependencies (report only)
+        continue-on-error: true
         run: npm audit --omit=dev --audit-level=high
+
+  # Stable check name for branch protection: passes only when every matrix
+  # entry passed, so adding a Node version does not require a rule change.
+  verify-complete:
+    name: verify
+    runs-on: ubuntu-latest
+    needs: verify
+    if: always()
+    steps:
+      - name: Check matrix result
+        run: test "${{ needs.verify.result }}" = "success"
