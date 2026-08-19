@@ -60,27 +60,32 @@ export default class ReportsProfitAndLoss extends BaseCommand {
       rows,
       [
         {key: 'account', header: 'Account'},
-        ...this.extractPeriodColumns(report),
+        ...this.extractPeriodColumns(report, rows),
       ],
       {csv: flags.csv},
     )
   }
 
-  private extractPeriodColumns(report: Record<string, unknown>) {
-    const rows = (report.rows ?? []) as Array<Record<string, unknown>>
-    const header = rows.find(row => row.rowType === 'Header')
+  private extractPeriodColumns(report: Record<string, unknown>, rows: Record<string, unknown>[]) {
+    const reportRows = (report.rows ?? []) as Array<Record<string, unknown>>
+    const header = reportRows.find(row => row.rowType === 'Header')
     const cells = (header?.cells ?? []) as Array<Record<string, unknown>>
     const periods = cells.slice(1)
+    const columnCount = Math.max(periods.length, this.countPeriodColumns(rows), 1)
 
-    if (periods.length === 0) {
-      return [{key: 'period0', header: 'Amount', format: (v: unknown) => v ? formatCurrency(v) : ''}]
-    }
-
-    return periods.map((cell, index) => ({
+    return Array.from({length: columnCount}, (_, index) => ({
       key: `period${index}`,
-      header: String(cell.value ?? `Period ${index + 1}`),
+      header: String(periods[index]?.value ?? (columnCount === 1 ? 'Amount' : `Period ${index + 1}`)),
       format: (v: unknown) => v ? formatCurrency(v) : '',
     }))
+  }
+
+  private countPeriodColumns(rows: Record<string, unknown>[]): number {
+    let count = 0
+    for (const row of rows) {
+      while (`period${count}` in row) count++
+    }
+    return count
   }
 
   private extractReportRows(report: Record<string, unknown>): Record<string, unknown>[] {

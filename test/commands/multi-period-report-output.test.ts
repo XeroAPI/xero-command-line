@@ -35,13 +35,32 @@ const report = {
   ],
 }
 
-async function captureReportOutput(Command: FinancialReportCommand, method: string) {
+const headerlessReport = {
+  reportName: 'Financial report',
+  rows: [
+    {
+      rowType: 'Section',
+      title: 'Income',
+      rows: [{
+        rowType: 'Row',
+        cells: [
+          {value: 'Sales'},
+          {value: '100.00'},
+          {value: '90.00'},
+          {value: '80.00'},
+        ],
+      }],
+    },
+  ],
+}
+
+async function captureReportOutput(Command: FinancialReportCommand, method: string, body = report) {
   const command = new Command([], {}) as any
   vi.spyOn(command, 'parse').mockResolvedValue({flags: {periods: 3}})
   vi.spyOn(command, 'xeroCall').mockImplementation(async (_flags: unknown, operation: Function) =>
     operation({
       accountingApi: {
-        [method]: vi.fn().mockResolvedValue({body: {reports: [report]}}),
+        [method]: vi.fn().mockResolvedValue({body: {reports: [body]}}),
       },
     }, 'tenant-id'),
   )
@@ -73,6 +92,20 @@ describe('multi-period financial report output', () => {
       {key: 'period0', header: '30 Apr 2026'},
       {key: 'period1', header: '31 Mar 2026'},
       {key: 'period2', header: '28 Feb 2026'},
+    ])
+  })
+
+  it.each([
+    ['balance sheet', ReportsBalanceSheet, 'getReportBalanceSheet'],
+    ['profit and loss', ReportsProfitAndLoss, 'getReportProfitAndLoss'],
+  ] as Array<[string, FinancialReportCommand, string]>)('%s keeps a column per period when the Header row is missing', async (_name, Command, method) => {
+    const [, columns] = await captureReportOutput(Command, method, headerlessReport)
+
+    expect((columns as Array<{key: string; header: string}>).map(({key, header}) => ({key, header}))).toEqual([
+      {key: 'account', header: 'Account'},
+      {key: 'period0', header: 'Period 1'},
+      {key: 'period1', header: 'Period 2'},
+      {key: 'period2', header: 'Period 3'},
     ])
   })
 })
