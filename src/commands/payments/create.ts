@@ -3,7 +3,7 @@ import {BaseCommand} from '../../base-command.js'
 import {paymentCreateSchema, paymentFileCreateSchema, formatZodError} from '../../lib/validators.js'
 import {paymentDeepLink} from '../../lib/deeplinks.js'
 import {ensureInvoiceNested, ensureAccountNested} from '../../lib/file-data.js'
-import {formatMutationPreview, paymentMutationSummary, runConfirmedMutation} from '../../lib/mutation-confirmation.js'
+import {formatMutationPreview, mutationSummary, runConfirmedMutation} from '../../lib/mutation-confirmation.js'
 import type {Payment} from 'xero-node'
 
 export default class PaymentsCreate extends BaseCommand {
@@ -62,11 +62,12 @@ export default class PaymentsCreate extends BaseCommand {
       }
     }
 
-    const outcome = await this.xeroCall(flags, async (xero, tenantId) => runConfirmedMutation({
+    const outcome = await this.xeroCall(flags, async (xero, tenantId, tenantName) => runConfirmedMutation({
       operation: 'payments.create',
       tenantId,
+      tenantName,
       payload: paymentData,
-      proposed: paymentMutationSummary(paymentData as Record<string, unknown>),
+      proposed: mutationSummary(paymentData as Record<string, unknown>),
       dryRun: flags['dry-run'],
       confirmation: flags.confirm,
       mutate: async () => {

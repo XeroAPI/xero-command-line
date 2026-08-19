@@ -3,6 +3,7 @@ import {BaseCommand} from '../../base-command.js'
 import {invoiceCreateSchema, invoiceFileCreateSchema, formatZodError} from '../../lib/validators.js'
 import {invoiceDeepLink, billDeepLink} from '../../lib/deeplinks.js'
 import {ensureContactNested} from '../../lib/file-data.js'
+import {formatMutationPreview, mutationSummary, runConfirmedMutation} from '../../lib/mutation-confirmation.js'
 import {Invoice} from 'xero-node'
 import type {LineItem} from 'xero-node'
 
@@ -10,7 +11,8 @@ export default class InvoicesCreate extends BaseCommand {
   static override description = 'Create an invoice in Xero'
 
   static override examples = [
-    '<%= config.bin %> invoices create --file invoice.json',
+    '<%= config.bin %> invoices create --file invoice.json --dry-run',
+    '<%= config.bin %> invoices create --file invoice.json --confirm <confirmation>',
     '<%= config.bin %> invoices create --contact-id abc-123 --type ACCREC --description "Consulting" --quantity 10 --unit-amount 150 --account-code 200 --tax-type OUTPUT2',
   ]
 
@@ -27,11 +29,15 @@ export default class InvoicesCreate extends BaseCommand {
     'item-code': Flags.string({description: 'Line item code'}),
     date: Flags.string({description: 'Invoice date (YYYY-MM-DD)'}),
     reference: Flags.string({description: 'Invoice reference'}),
+    'dry-run': Flags.boolean({description: 'Preview without creating an invoice', default: false}),
+    confirm: Flags.string({description: 'Organisation- and payload-bound value returned by --dry-run'}),
   }
 
   async run(): Promise<void> {
     const {flags} = await this.parse(InvoicesCreate)
 
+    let invoiceData: Invoice
+    let invoiceType: string | undefined
     if (flags.file) {
       const fileData = this.readJsonFile(flags.file) as Record<string, unknown>
       const parsed = invoiceFileCreateSchema.safeParse(fileData)
@@ -39,26 +45,8 @@ export default class InvoicesCreate extends BaseCommand {
         this.error(`Validation errors:\n${formatZodError(parsed.error)}`)
       }
 
-      const invoiceData = ensureContactNested(fileData) as Invoice
-
-      const {resource: result, shortCode} = await this.xeroCall(flags, async (xero, tenantId) => {
-        const response = await xero.accountingApi.createInvoices(tenantId, {invoices: [invoiceData]})
-        const shortCode = await this.getOrgShortCode(xero, tenantId)
-        return {resource: response.body.invoices?.[0], shortCode}
-      })
-
-      if (flags.json) {
-        this.log(JSON.stringify(result, null, 2))
-      } else {
-        const r = result as Record<string, unknown> | undefined
-        this.log(`Invoice created: ${r?.invoiceNumber} (${r?.invoiceID})`)
-        if (shortCode && r?.invoiceID) {
-          const link = parsed.data.type === 'ACCPAY'
-            ? billDeepLink(shortCode, r.invoiceID as string)
-            : invoiceDeepLink(shortCode, r.invoiceID as string)
-          this.log(`View in Xero: ${link}`)
-        }
-      }
+      invoiceData = ensureContactNested(fileData) as Invoice
+      invoiceType = parsed.data.type
     } else {
       const data = {
         contactId: flags['contact-id'],
@@ -80,41 +68,57 @@ export default class InvoicesCreate extends BaseCommand {
         this.error(`Validation errors:\n${formatZodError(parsed.error)}`)
       }
 
-      const {resource: result, shortCode} = await this.xeroCall(flags, async (xero, tenantId) => {
-        const lineItems: LineItem[] = parsed.data.lineItems.map(li => ({
-          description: li.description,
-          quantity: li.quantity,
-          unitAmount: li.unitAmount,
-          accountCode: li.accountCode,
-          taxType: li.taxType,
-          itemCode: li.itemCode,
-          tracking: li.tracking as LineItem['tracking'],
-        }))
+      const lineItems: LineItem[] = parsed.data.lineItems.map(li => ({
+        description: li.description,
+        quantity: li.quantity,
+        unitAmount: li.unitAmount,
+        accountCode: li.accountCode,
+        taxType: li.taxType,
+        itemCode: li.itemCode,
+        tracking: li.tracking as LineItem['tracking'],
+      }))
 
-        const invoice: Invoice = {
-          type: Invoice.TypeEnum[parsed.data.type as keyof typeof Invoice.TypeEnum],
-          contact: {contactID: parsed.data.contactId},
-          lineItems,
-          date: parsed.data.date,
-          reference: parsed.data.reference,
-        }
+      invoiceData = {
+        type: Invoice.TypeEnum[parsed.data.type as keyof typeof Invoice.TypeEnum],
+        contact: {contactID: parsed.data.contactId},
+        lineItems,
+        date: parsed.data.date,
+        reference: parsed.data.reference,
+      }
+      invoiceType = parsed.data.type
+    }
 
-        const response = await xero.accountingApi.createInvoices(tenantId, {invoices: [invoice]})
+    const outcome = await this.xeroCall(flags, async (xero, tenantId, tenantName) => runConfirmedMutation({
+      operation: 'invoices.create',
+      tenantId,
+      tenantName,
+      payload: invoiceData,
+      proposed: mutationSummary(invoiceData as unknown as Record<string, unknown>),
+      dryRun: flags['dry-run'],
+      confirmation: flags.confirm,
+      mutate: async () => {
+        const response = await xero.accountingApi.createInvoices(tenantId, {invoices: [invoiceData]})
         const shortCode = await this.getOrgShortCode(xero, tenantId)
         return {resource: response.body.invoices?.[0], shortCode}
-      })
+      },
+    }))
 
-      if (flags.json) {
-        this.log(JSON.stringify(result, null, 2))
-      } else {
-        const r = result as Record<string, unknown> | undefined
-        this.log(`Invoice created: ${r?.invoiceNumber} (${r?.invoiceID})`)
-        if (shortCode && r?.invoiceID) {
-          const link = parsed.data.type === 'ACCPAY'
-            ? billDeepLink(shortCode, r.invoiceID as string)
-            : invoiceDeepLink(shortCode, r.invoiceID as string)
-          this.log(`View in Xero: ${link}`)
-        }
+    if (!outcome.executed) {
+      this.log(formatMutationPreview(outcome.preview, flags.json))
+      return
+    }
+
+    const {resource: result, shortCode} = outcome.value
+    if (flags.json) {
+      this.log(JSON.stringify(result, null, 2))
+    } else {
+      const r = result as Record<string, unknown> | undefined
+      this.log(`Invoice created: ${r?.invoiceNumber} (${r?.invoiceID})`)
+      if (shortCode && r?.invoiceID) {
+        const link = invoiceType === 'ACCPAY'
+          ? billDeepLink(shortCode, r.invoiceID as string)
+          : invoiceDeepLink(shortCode, r.invoiceID as string)
+        this.log(`View in Xero: ${link}`)
       }
     }
   }

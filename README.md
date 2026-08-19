@@ -213,13 +213,14 @@ xero invoices list --contact-id 00000000-0000-0000-0000-000000000001
 xero invoices list --invoice-number INV-0001
 xero invoices list --page 2 --csv
 
-# Create an invoice (inline flags for a single line item)
+# Create an invoice (inline flags for a single line item; preview first)
 xero invoices create --contact-id 00000000-0000-0000-0000-000000000001 --type ACCREC \
   --description "Consulting" --quantity 10 --unit-amount 150 \
-  --account-code 200 --tax-type OUTPUT2
+  --account-code 200 --tax-type OUTPUT2 --dry-run
 
 # Create an invoice (JSON file for multiple line items)
-xero invoices create --file invoice.json
+xero invoices create --file invoice.json --dry-run
+xero invoices create --file invoice.json --confirm <confirmation>
 
 # Update a draft invoice
 xero invoices update --invoice-id 00000000-0000-0000-0000-000000000001 --reference "Updated ref"
@@ -281,11 +282,12 @@ xero quotes update --file quote-update.json
 xero credit-notes list
 xero credit-notes list --contact-id 00000000-0000-0000-0000-000000000001 --page 2
 
-# Create a credit note
-xero credit-notes create --file credit-note.json
+# Create a credit note (preview first, then confirm)
+xero credit-notes create --file credit-note.json --dry-run
+xero credit-notes create --file credit-note.json --confirm <confirmation>
 xero credit-notes create --contact-id 00000000-0000-0000-0000-000000000001 \
   --description "Refund" --quantity 1 --unit-amount 100 \
-  --account-code 200 --tax-type OUTPUT2
+  --account-code 200 --tax-type OUTPUT2 --dry-run
 
 # Update a draft credit note
 xero credit-notes update --file credit-note-update.json
@@ -302,7 +304,7 @@ xero manual-journals list --modified-after 2025-01-01
 # Preview a manual journal without creating it
 xero manual-journals create --file journal.json --dry-run
 
-# Review the organisation tenant ID and redacted summary, then rerun the same
+# Review the organisation and the proposed summary, then rerun the same
 # payload with the confirmation value printed by the dry run
 xero manual-journals create --file journal.json --confirm <confirmation>
 
@@ -332,11 +334,12 @@ xero manual-journals update --file journal-update.json
 xero bank-transactions list
 xero bank-transactions list --bank-account-id 00000000-0000-0000-0000-000000000001
 
-# Create a bank transaction
-xero bank-transactions create --file bank-transaction.json
+# Create a bank transaction (preview first, then confirm)
+xero bank-transactions create --file bank-transaction.json --dry-run
+xero bank-transactions create --file bank-transaction.json --confirm <confirmation>
 xero bank-transactions create --type SPEND --bank-account-id 00000000-0000-0000-0000-000000000001 \
   --contact-id 00000000-0000-0000-0000-000000000002 --description "Office supplies" \
-  --quantity 1 --unit-amount 50 --account-code 429 --tax-type INPUT2
+  --quantity 1 --unit-amount 50 --account-code 429 --tax-type INPUT2 --dry-run
 
 # Update a bank transaction
 xero bank-transactions update --file bank-transaction-update.json
@@ -358,11 +361,14 @@ xero payments create --invoice-id 00000000-0000-0000-0000-000000000001 --account
 xero payments create --invoice-id 00000000-0000-0000-0000-000000000001 --account-id 00000000-0000-0000-0000-000000000002 --amount 500 --confirm <confirmation>
 ```
 
-Payment and manual-journal creation now require this two-run confirmation. The
-value is deterministically bound to the selected organisation tenant ID,
-operation and canonical payload. Changing any of them invalidates it. The value
-is not a secret, does not expire and is not a one-time or cross-process replay
-control; review every dry-run summary before executing it.
+Creating an invoice, credit note, bank transaction, payment or manual journal
+requires this two-run confirmation. The value is deterministically bound to the
+selected organisation tenant ID, operation and canonical payload. Changing any
+of them invalidates it. The dry run names the organisation when the token cache
+knows it, and shows every field that will be sent; line collections are reduced
+to a count and a total, and manual-journal narration and line content stay
+redacted. The value is not a secret, does not expire and is not a one-time or
+cross-process replay control; review every dry-run summary before executing it.
 
 ### Items
 

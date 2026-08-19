@@ -31,9 +31,10 @@ export default class ManualJournalsCreate extends BaseCommand {
     }
 
     const journal = parsed.data as unknown as ManualJournal
-    const outcome = await this.xeroCall(flags, async (xero, tenantId) => runConfirmedMutation({
+    const outcome = await this.xeroCall(flags, async (xero, tenantId, tenantName) => runConfirmedMutation({
       operation: 'manual-journals.create',
       tenantId,
+      tenantName,
       payload: journal,
       proposed: manualJournalMutationSummary(journal as unknown as Record<string, unknown>),
       dryRun: flags['dry-run'],

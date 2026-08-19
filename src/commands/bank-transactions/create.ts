@@ -3,6 +3,7 @@ import {BaseCommand} from '../../base-command.js'
 import {bankTransactionCreateSchema, bankTransactionFileCreateSchema, formatZodError} from '../../lib/validators.js'
 import {bankTransactionDeepLink} from '../../lib/deeplinks.js'
 import {ensureContactNested, ensureBankAccountNested} from '../../lib/file-data.js'
+import {formatMutationPreview, mutationSummary, runConfirmedMutation} from '../../lib/mutation-confirmation.js'
 import {BankTransaction} from 'xero-node'
 import type {LineItem} from 'xero-node'
 
@@ -10,7 +11,8 @@ export default class BankTransactionsCreate extends BaseCommand {
   static override description = 'Create a bank transaction in Xero'
 
   static override examples = [
-    '<%= config.bin %> bank-transactions create --file bank-transaction.json',
+    '<%= config.bin %> bank-transactions create --file bank-transaction.json --dry-run',
+    '<%= config.bin %> bank-transactions create --file bank-transaction.json --confirm <confirmation>',
   ]
 
   static override flags = {
@@ -26,11 +28,14 @@ export default class BankTransactionsCreate extends BaseCommand {
     'unit-amount': Flags.string({description: 'Line item unit amount'}),
     'account-code': Flags.string({description: 'Line item account code'}),
     'tax-type': Flags.string({description: 'Line item tax type'}),
+    'dry-run': Flags.boolean({description: 'Preview without creating a bank transaction', default: false}),
+    confirm: Flags.string({description: 'Organisation- and payload-bound value returned by --dry-run'}),
   }
 
   async run(): Promise<void> {
     const {flags} = await this.parse(BankTransactionsCreate)
 
+    let txData: BankTransaction
     if (flags.file) {
       const fileData = this.readJsonFile(flags.file) as Record<string, unknown>
       const parsed = bankTransactionFileCreateSchema.safeParse(fileData)
@@ -38,23 +43,7 @@ export default class BankTransactionsCreate extends BaseCommand {
         this.error(`Validation errors:\n${formatZodError(parsed.error)}`)
       }
 
-      const txData = ensureBankAccountNested(ensureContactNested(fileData)) as unknown as BankTransaction
-
-      const {resource: result, shortCode} = await this.xeroCall(flags, async (xero, tenantId) => {
-        const response = await xero.accountingApi.createBankTransactions(tenantId, {bankTransactions: [txData]})
-        const shortCode = await this.getOrgShortCode(xero, tenantId)
-        return {resource: response.body.bankTransactions?.[0], shortCode}
-      })
-
-      if (flags.json) {
-        this.log(JSON.stringify(result, null, 2))
-      } else {
-        const r = result as Record<string, unknown> | undefined
-        this.log(`Bank transaction created: ${r?.bankTransactionID}`)
-        if (shortCode && r?.bankTransactionID) {
-          this.log(`View in Xero: ${bankTransactionDeepLink(shortCode, r.bankTransactionID as string)}`)
-        }
-      }
+      txData = ensureBankAccountNested(ensureContactNested(fileData)) as unknown as BankTransaction
     } else {
       const data = {
         type: flags.type,
@@ -76,37 +65,52 @@ export default class BankTransactionsCreate extends BaseCommand {
         this.error(`Validation errors:\n${formatZodError(parsed.error)}`)
       }
 
-      const {resource: result, shortCode} = await this.xeroCall(flags, async (xero, tenantId) => {
-        const lineItems: LineItem[] = parsed.data.lineItems.map(li => ({
-          description: li.description,
-          quantity: li.quantity,
-          unitAmount: li.unitAmount,
-          accountCode: li.accountCode,
-          taxType: li.taxType,
-        }))
+      const lineItems: LineItem[] = parsed.data.lineItems.map(li => ({
+        description: li.description,
+        quantity: li.quantity,
+        unitAmount: li.unitAmount,
+        accountCode: li.accountCode,
+        taxType: li.taxType,
+      }))
 
-        const bankTransaction: BankTransaction = {
-          type: BankTransaction.TypeEnum[parsed.data.type as keyof typeof BankTransaction.TypeEnum],
-          bankAccount: {accountID: parsed.data.bankAccountId},
-          contact: {contactID: parsed.data.contactId},
-          lineItems,
-          date: parsed.data.date,
-          reference: parsed.data.reference,
-        }
+      txData = {
+        type: BankTransaction.TypeEnum[parsed.data.type as keyof typeof BankTransaction.TypeEnum],
+        bankAccount: {accountID: parsed.data.bankAccountId},
+        contact: {contactID: parsed.data.contactId},
+        lineItems,
+        date: parsed.data.date,
+        reference: parsed.data.reference,
+      }
+    }
 
-        const response = await xero.accountingApi.createBankTransactions(tenantId, {bankTransactions: [bankTransaction]})
+    const outcome = await this.xeroCall(flags, async (xero, tenantId, tenantName) => runConfirmedMutation({
+      operation: 'bank-transactions.create',
+      tenantId,
+      tenantName,
+      payload: txData,
+      proposed: mutationSummary(txData as unknown as Record<string, unknown>),
+      dryRun: flags['dry-run'],
+      confirmation: flags.confirm,
+      mutate: async () => {
+        const response = await xero.accountingApi.createBankTransactions(tenantId, {bankTransactions: [txData]})
         const shortCode = await this.getOrgShortCode(xero, tenantId)
         return {resource: response.body.bankTransactions?.[0], shortCode}
-      })
+      },
+    }))
 
-      if (flags.json) {
-        this.log(JSON.stringify(result, null, 2))
-      } else {
-        const r = result as Record<string, unknown> | undefined
-        this.log(`Bank transaction created: ${r?.bankTransactionID}`)
-        if (shortCode && r?.bankTransactionID) {
-          this.log(`View in Xero: ${bankTransactionDeepLink(shortCode, r.bankTransactionID as string)}`)
-        }
+    if (!outcome.executed) {
+      this.log(formatMutationPreview(outcome.preview, flags.json))
+      return
+    }
+
+    const {resource: result, shortCode} = outcome.value
+    if (flags.json) {
+      this.log(JSON.stringify(result, null, 2))
+    } else {
+      const r = result as Record<string, unknown> | undefined
+      this.log(`Bank transaction created: ${r?.bankTransactionID}`)
+      if (shortCode && r?.bankTransactionID) {
+        this.log(`View in Xero: ${bankTransactionDeepLink(shortCode, r.bankTransactionID as string)}`)
       }
     }
   }

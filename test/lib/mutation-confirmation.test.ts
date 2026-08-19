@@ -2,16 +2,17 @@ import {describe, expect, it, vi} from 'vitest'
 import {
   formatMutationPreview,
   manualJournalMutationSummary,
-  paymentMutationSummary,
+  mutationSummary,
   runConfirmedMutation,
 } from '../../src/lib/mutation-confirmation.js'
 
 const payment = {
-  invoice: {invoiceID: 'invoice-secret-marker'},
-  account: {accountID: 'account-secret-marker'},
+  invoice: {invoiceID: 'invoice-1'},
+  account: {accountID: 'account-1'},
   amount: 250.5,
   date: '2026-08-13',
-  reference: 'reference-secret-marker',
+  reference: 'Rent June',
+  currencyRate: 1.25,
 }
 
 describe('runConfirmedMutation', () => {
@@ -21,7 +22,7 @@ describe('runConfirmedMutation', () => {
       operation: 'payments.create',
       tenantId: 'tenant-123',
       payload: payment,
-      proposed: paymentMutationSummary(payment),
+      proposed: mutationSummary(payment),
       dryRun: true,
       mutate,
     })
@@ -32,11 +33,54 @@ describe('runConfirmedMutation', () => {
       expect(outcome.preview.organisation).toEqual({tenantId: 'tenant-123'})
       expect(outcome.preview.confirmation).toMatch(/^[a-f0-9]{64}$/)
       const rendered = formatMutationPreview(outcome.preview, true)
-      expect(rendered).not.toContain('invoice-secret-marker')
-      expect(rendered).not.toContain('account-secret-marker')
-      expect(rendered).not.toContain('reference-secret-marker')
-      expect(rendered).toContain('[REDACTED]')
+      expect(rendered).toContain('invoice-1')
+      expect(rendered).toContain('account-1')
+      expect(rendered).toContain('Rent June')
+      expect(rendered).toContain('250.5')
     }
+  })
+
+  it('shows every field that will be sent, including passthrough fields', () => {
+    expect(mutationSummary(payment)).toEqual({
+      invoice: {invoiceID: 'invoice-1'},
+      account: {accountID: 'account-1'},
+      amount: 250.5,
+      date: '2026-08-13',
+      reference: 'Rent June',
+      currencyRate: 1.25,
+    })
+  })
+
+  it('summarises line collections by count and total', () => {
+    const invoice = {
+      type: 'ACCREC',
+      contact: {contactID: 'contact-1'},
+      lineItems: [
+        {description: 'private-line-marker', quantity: 2, unitAmount: 150},
+        {description: 'private-line-marker', quantity: 1, unitAmount: 50},
+      ],
+    }
+
+    const summary = mutationSummary(invoice)
+
+    expect(summary.lineItems).toEqual({count: 2, total: 350, content: '[REDACTED]'})
+    expect(JSON.stringify(summary)).not.toContain('private-line-marker')
+  })
+
+  it('names the organisation when the token cache knows it', async () => {
+    const outcome = await runConfirmedMutation({
+      operation: 'payments.create',
+      tenantId: 'tenant-123',
+      tenantName: 'Demo Company (AU)',
+      payload: payment,
+      proposed: mutationSummary(payment),
+      dryRun: true,
+      mutate: vi.fn(),
+    })
+    if (outcome.executed) throw new Error('Expected dry run')
+
+    expect(outcome.preview.organisation).toEqual({tenantId: 'tenant-123', name: 'Demo Company (AU)'})
+    expect(formatMutationPreview(outcome.preview, false)).toContain('Organisation: Demo Company (AU)')
   })
 
   it('rejects missing, wrong, cross-organisation, and changed-payload confirmation', async () => {
@@ -45,7 +89,7 @@ describe('runConfirmedMutation', () => {
       operation: 'payments.create',
       tenantId: 'tenant-123',
       payload: payment,
-      proposed: paymentMutationSummary(payment),
+      proposed: mutationSummary(payment),
       dryRun: true,
       mutate,
     })
@@ -61,7 +105,7 @@ describe('runConfirmedMutation', () => {
         operation: 'payments.create',
         tenantId: options.tenantId,
         payload: options.payload,
-        proposed: paymentMutationSummary(options.payload),
+        proposed: mutationSummary(options.payload),
         dryRun: false,
         confirmation: options.confirmation,
         mutate,
@@ -76,7 +120,7 @@ describe('runConfirmedMutation', () => {
       operation: 'payments.create',
       tenantId: 'tenant-123',
       payload: payment,
-      proposed: paymentMutationSummary(payment),
+      proposed: mutationSummary(payment),
       dryRun: true,
       mutate,
     })
@@ -86,7 +130,7 @@ describe('runConfirmedMutation', () => {
       operation: 'payments.create',
       tenantId: 'tenant-123',
       payload: payment,
-      proposed: paymentMutationSummary(payment),
+      proposed: mutationSummary(payment),
       dryRun: false,
       confirmation: dryRun.preview.confirmation,
       mutate,
@@ -118,6 +162,25 @@ describe('runConfirmedMutation', () => {
     expect(first.preview.confirmation).toBe(second.preview.confirmation)
   })
 
+  it('distinguishes manual journals by their line totals', () => {
+    const lines = (amount: number) => [
+      {lineAmount: amount, accountCode: '200'},
+      {lineAmount: -amount, accountCode: '400'},
+    ]
+
+    const small = manualJournalMutationSummary({narration: 'Adjust', journalLines: lines(1.5)})
+    const large = manualJournalMutationSummary({narration: 'Adjust', journalLines: lines(1_500_000)})
+
+    expect(small.journalLines).toEqual({count: 2, debitTotal: 1.5, creditTotal: 1.5, content: '[REDACTED]'})
+    expect(large.journalLines).toEqual({
+      count: 2,
+      debitTotal: 1_500_000,
+      creditTotal: 1_500_000,
+      content: '[REDACTED]',
+    })
+    expect(small.journalLines).not.toEqual(large.journalLines)
+  })
+
   it('keeps manual journal free text and line content out of the bounded preview', async () => {
     const secret = `personal-secret-marker-${'x'.repeat(10_000)}`
     const journal = {
@@ -144,7 +207,12 @@ describe('runConfirmedMutation', () => {
     expect(rendered.length).toBeLessThan(1000)
     expect(outcome.preview.organisation.tenantId).toBe('tenant-123')
     expect(outcome.preview.proposed.date).toBe('2026-08-13')
-    expect(outcome.preview.proposed.journalLines).toEqual({count: 2, content: '[REDACTED]'})
+    expect(outcome.preview.proposed.journalLines).toEqual({
+      count: 2,
+      debitTotal: 100,
+      creditTotal: 100,
+      content: '[REDACTED]',
+    })
   })
 
   it('fails closed on unsupported payload values before mutation', async () => {

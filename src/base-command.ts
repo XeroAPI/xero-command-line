@@ -55,7 +55,7 @@ export abstract class BaseCommand extends Command {
 
   protected async xeroCall<T>(
     flags: {profile?: string; 'client-id'?: string},
-    operation: (xero: XeroClient, tenantId: string) => Promise<T>,
+    operation: (xero: XeroClient, tenantId: string, tenantName?: string) => Promise<T>,
   ): Promise<T> {
     const {profileName, clientId} = this.resolveCredentials(flags)
     return withRetry(profileName, clientId, operation)

@@ -9,7 +9,7 @@ export {clearCachedToken}
 export async function createXeroClient(
   profileName: string,
   clientId: string,
-): Promise<{xero: XeroClient; tenantId: string}> {
+): Promise<{xero: XeroClient; tenantId: string; tenantName?: string}> {
   const cached = await getCachedTokenSet(profileName)
   if (!cached) {
     throw new Error(`Not logged in. Run "xero login" to authenticate.`)
@@ -39,21 +39,21 @@ export async function createXeroClient(
     ...headers,
   }
 
-  return {xero, tenantId}
+  return {xero, tenantId, tenantName: cached.tenantName}
 }
 
 export async function withRetry<T>(
   profileName: string,
   clientId: string,
-  operation: (xero: XeroClient, tenantId: string) => Promise<T>,
+  operation: (xero: XeroClient, tenantId: string, tenantName?: string) => Promise<T>,
   maxRetries = 2,
 ): Promise<T> {
   let lastError: Error | undefined
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      const {xero, tenantId} = await createXeroClient(profileName, clientId)
-      return await operation(xero, tenantId)
+      const {xero, tenantId, tenantName} = await createXeroClient(profileName, clientId)
+      return await operation(xero, tenantId, tenantName)
     } catch (error) {
       if (error instanceof EncryptionKeyError) throw error
       lastError = error instanceof Error ? error : new Error(String(error))
