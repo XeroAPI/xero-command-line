@@ -65,4 +65,67 @@ describe('report boolean flags', () => {
       true,
     )
   })
+
+  it('passes standard-layout to the Balance Sheet standardLayout parameter', async () => {
+    const getReportBalanceSheet = vi.fn().mockResolvedValue({body: {reports: [{}]}})
+    const command = Object.create(ReportsBalanceSheet.prototype) as ReportsBalanceSheet
+
+    Object.assign(command, {
+      parse: vi.fn().mockResolvedValue({flags: {
+        'payments-only': false,
+        'standard-layout': true,
+      }}),
+      xeroCall: vi.fn(async (_flags, operation) => operation({
+        accountingApi: {getReportBalanceSheet},
+      }, 'tenant-id')),
+      log: vi.fn(),
+      outputFormatted: vi.fn(),
+    })
+
+    await command.run()
+
+    expect(getReportBalanceSheet).toHaveBeenCalledWith(
+      'tenant-id',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      true,
+      undefined,
+    )
+  })
+
+  it('passes standard-layout to the Profit and Loss standardLayout parameter', async () => {
+    const getReportProfitAndLoss = vi.fn().mockResolvedValue({body: {reports: [{}]}})
+    const command = Object.create(ReportsProfitAndLoss.prototype) as ReportsProfitAndLoss
+
+    Object.assign(command, {
+      parse: vi.fn().mockResolvedValue({flags: {
+        'payments-only': false,
+        'standard-layout': true,
+      }}),
+      xeroCall: vi.fn(async (_flags, operation) => operation({
+        accountingApi: {getReportProfitAndLoss},
+      }, 'tenant-id')),
+      log: vi.fn(),
+      outputFormatted: vi.fn(),
+    })
+
+    await command.run()
+
+    expect(getReportProfitAndLoss).toHaveBeenCalledWith(
+      'tenant-id',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      true,
+      undefined,
+    )
+  })
 })
