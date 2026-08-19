@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   clearCachedToken: vi.fn(),
   getCachedTokenSet: vi.fn(),
   getClientHeaders: vi.fn(),
+  isInvalidClientError: vi.fn(),
   isInvalidRefreshTokenError: vi.fn(),
   isTokenExpired: vi.fn(),
   refreshAccessToken: vi.fn(),
@@ -24,6 +25,7 @@ vi.mock('../../src/lib/crypto.js', () => ({
 }))
 
 vi.mock('../../src/lib/oauth.js', () => ({
+  isInvalidClientError: mocks.isInvalidClientError,
   isInvalidRefreshTokenError: mocks.isInvalidRefreshTokenError,
   refreshAccessToken: mocks.refreshAccessToken,
 }))
@@ -70,6 +72,49 @@ describe('refresh failures in the Xero client', () => {
     expect(mocks.clearCachedToken).not.toHaveBeenCalled()
     expect(mocks.cacheTokenSet).not.toHaveBeenCalled()
     expect(mocks.isInvalidRefreshTokenError).toHaveBeenCalledWith(transientError)
+  })
+
+  it('keeps the underlying failure as the cause of a transient refresh error', async () => {
+    const transientError = new TypeError('fetch failed')
+    mocks.isTokenExpired.mockReturnValue(true)
+    mocks.refreshAccessToken.mockRejectedValue(transientError)
+    mocks.isInvalidRefreshTokenError.mockReturnValue(false)
+    mocks.isInvalidClientError.mockReturnValue(false)
+
+    const error = await createXeroClient('profile', 'client-id').catch((caught: unknown) => caught)
+
+    expect((error as Error).message).toBe('Unable to refresh Xero session. Please try again.')
+    expect((error as Error).cause).toBe(transientError)
+  })
+
+  it('reports a rejected client ID instead of a retryable failure', async () => {
+    const invalidClientError = new Error('Token refresh failed (400): invalid_client')
+    mocks.isTokenExpired.mockReturnValue(true)
+    mocks.refreshAccessToken.mockRejectedValue(invalidClientError)
+    mocks.isInvalidRefreshTokenError.mockReturnValue(false)
+    mocks.isInvalidClientError.mockImplementation((error) => error === invalidClientError)
+
+    const error = await createXeroClient('profile', 'client-id').catch((caught: unknown) => caught)
+
+    expect((error as Error).message).toBe(
+      'Xero rejected the client ID for this profile. Run "xero login" to re-authenticate with the correct client ID.',
+    )
+    expect((error as Error).cause).toBe(invalidClientError)
+    expect(mocks.clearCachedToken).not.toHaveBeenCalled()
+  })
+
+  it('preserves the refresh failure cause through the retry wrapper', async () => {
+    const transientError = new TypeError('fetch failed')
+    mocks.isTokenExpired.mockReturnValue(true)
+    mocks.refreshAccessToken.mockRejectedValue(transientError)
+    mocks.isInvalidRefreshTokenError.mockReturnValue(false)
+    mocks.isInvalidClientError.mockReturnValue(false)
+
+    const error = await withRetry('profile', 'client-id', async () => 'ok', 1)
+      .catch((caught: unknown) => caught)
+
+    expect((error as Error).message).toBe('Unable to refresh Xero session. Please try again.')
+    expect((error as Error).cause).toBe(transientError)
   })
 
   it('retains credentials when the token endpoint responds with a 5xx error', async () => {

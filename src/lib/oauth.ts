@@ -42,7 +42,7 @@ interface TokenSet {
 }
 
 interface OAuthErrorResponse {
-  error?: 'invalid_grant'
+  error?: 'invalid_grant' | 'invalid_client'
 }
 
 class TokenResponseTooLargeError extends Error {}
@@ -67,9 +67,9 @@ function parseOAuthErrorResponse(responseText: string): OAuthErrorResponse {
     if (!parsed || typeof parsed !== 'object') return {}
 
     const response = parsed as Record<string, unknown>
-    return {
-      error: response.error === 'invalid_grant' ? 'invalid_grant' : undefined,
-    }
+    const error = response.error
+    if (error === 'invalid_grant' || error === 'invalid_client') return {error}
+    return {}
   } catch {
     return {}
   }
@@ -136,6 +136,17 @@ export function isInvalidRefreshTokenError(error: unknown): boolean {
   return error instanceof OAuthTokenRefreshError
     && error.statusCode === 400
     && error.oauthError === 'invalid_grant'
+}
+
+/**
+ * invalid_client means the client ID no longer matches the Xero app that
+ * issued the cached token, so retrying the same request can never succeed.
+ * The refresh token itself is untouched, so the cache is kept.
+ */
+export function isInvalidClientError(error: unknown): boolean {
+  return error instanceof OAuthTokenRefreshError
+    && (error.statusCode === 400 || error.statusCode === 401)
+    && error.oauthError === 'invalid_client'
 }
 
 interface XeroTenant {

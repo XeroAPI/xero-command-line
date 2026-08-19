@@ -1,13 +1,15 @@
 import {XeroClient} from 'xero-node'
 import {getCachedTokenSet, cacheTokenSet, clearCachedToken, isTokenExpired, type TokenEntry} from './auth.js'
 import {EncryptionKeyError} from './crypto.js'
-import {isInvalidRefreshTokenError, refreshAccessToken} from './oauth.js'
+import {isInvalidClientError, isInvalidRefreshTokenError, refreshAccessToken} from './oauth.js'
 import {getClientHeaders} from './get-client-headers.js'
 
 export {clearCachedToken}
 
 const SESSION_EXPIRED_MESSAGE = 'Session expired. Run "xero login" to re-authenticate.'
 const REFRESH_UNAVAILABLE_MESSAGE = 'Unable to refresh Xero session. Please try again.'
+const CLIENT_REJECTED_MESSAGE =
+  'Xero rejected the client ID for this profile. Run "xero login" to re-authenticate with the correct client ID.'
 
 async function refreshCachedToken(
   profileName: string,
@@ -23,10 +25,14 @@ async function refreshCachedToken(
 
     if (isInvalidRefreshTokenError(error)) {
       clearCachedToken(profileName)
-      throw new Error(SESSION_EXPIRED_MESSAGE)
+      throw new Error(SESSION_EXPIRED_MESSAGE, {cause: error})
     }
 
-    throw new Error(REFRESH_UNAVAILABLE_MESSAGE)
+    if (isInvalidClientError(error)) {
+      throw new Error(CLIENT_REJECTED_MESSAGE, {cause: error})
+    }
+
+    throw new Error(REFRESH_UNAVAILABLE_MESSAGE, {cause: error})
   }
 }
 
@@ -137,7 +143,7 @@ export function sanitizeApiError(error: Error, hint?: ParsedXeroError): Error {
   const {statusCode, parsed} = hint ?? parseXeroError(error)
 
   // Non-Xero error (network, our own thrown messages, etc.) — pass through.
-  if (!parsed) return new Error(error.message)
+  if (!parsed) return new Error(error.message, {cause: error.cause})
 
   try {
     const response = parsed.response as Record<string, unknown> | undefined

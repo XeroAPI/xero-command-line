@@ -1,4 +1,4 @@
-import {existsSync, mkdirSync, readFileSync, writeFileSync} from 'node:fs'
+import {chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
 import {encrypt, decrypt, getOrCreateKey, CONFIG_DIR, EncryptionKeyError} from './crypto.js'
 
@@ -45,7 +45,13 @@ function readTokenCache(): TokenCache {
 
 function writeTokenCache(cache: TokenCache): void {
   ensureConfigDir()
-  writeFileSync(TOKEN_PATH, JSON.stringify(cache, null, 2), {mode: 0o600})
+  // Write to a sibling temp file and rename, so a crash mid-write cannot leave
+  // partial JSON that readTokenCache would swallow into an empty cache.
+  const tempPath = `${TOKEN_PATH}.${process.pid}.tmp`
+  writeFileSync(tempPath, JSON.stringify(cache, null, 2), {mode: 0o600})
+  // mode is only honoured when open() creates the file.
+  chmodSync(tempPath, 0o600)
+  renameSync(tempPath, TOKEN_PATH)
 }
 
 export async function getCachedTokenSet(profileName: string): Promise<TokenEntry | null> {
@@ -81,8 +87,7 @@ export async function cacheTokenSet(
   tenantName?: string,
 ): Promise<void> {
   const accessToken = tokenSet.access_token
-  const refreshToken = tokenSet.refresh_token
-  if (!accessToken || !refreshToken) return
+  if (!accessToken) return
 
   let expiresAt: number
   if (tokenSet.expires_at) {
@@ -97,9 +102,16 @@ export async function cacheTokenSet(
 
   const key = await getOrCreateKey()
   const cache = readTokenCache()
+  // A refresh response may omit refresh_token; retain the stored one rather
+  // than discarding the whole update and re-refreshing on every invocation.
+  const refreshToken = tokenSet.refresh_token
+    ? encrypt(tokenSet.refresh_token, key)
+    : cache[profileName]?.refreshToken
+  if (!refreshToken) return
+
   cache[profileName] = {
     accessToken: encrypt(accessToken, key),
-    refreshToken: encrypt(refreshToken, key),
+    refreshToken,
     expiresAt,
     tenantId,
     tenantName,

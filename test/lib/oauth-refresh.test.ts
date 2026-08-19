@@ -10,6 +10,39 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+describe('refreshAccessToken success responses', () => {
+  it('returns the rotated refresh token and drops unknown fields', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      access_token: 'new-access-token',
+      refresh_token: 'rotated-refresh-token',
+      expires_in: 1800,
+      token_type: 'Bearer',
+      scope: 'accounting.transactions',
+      unexpected_field: 'ignored',
+    }), {status: 200})))
+
+    await expect(refreshAccessToken('client-id', 'refresh-token')).resolves.toEqual({
+      access_token: 'new-access-token',
+      refresh_token: 'rotated-refresh-token',
+      expires_in: 1800,
+      token_type: 'Bearer',
+      scope: 'accounting.transactions',
+    })
+  })
+
+  it('returns a successful refresh that omits the refresh token', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      access_token: 'new-access-token',
+      expires_in: 1800,
+    }), {status: 200})))
+
+    await expect(refreshAccessToken('client-id', 'refresh-token')).resolves.toEqual({
+      access_token: 'new-access-token',
+      expires_in: 1800,
+    })
+  })
+})
+
 describe('refreshAccessToken error classification', () => {
   it('classifies a structured invalid_grant response as an unusable refresh token', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
