@@ -24,8 +24,9 @@ export default class Logout extends BaseCommand {
       env: 'XERO_PROFILE',
     }),
     'client-id': Flags.string({
+      // No env binding: an ambient XERO_CLIENT_ID must not silently retarget a
+      // logout away from the profile the user asked for.
       description: 'Xero client ID for an inline login',
-      env: 'XERO_CLIENT_ID',
     }),
   }
 
@@ -43,7 +44,7 @@ export default class Logout extends BaseCommand {
 
     const sessionDescription = isInlineCredentialSelector(flags)
       ? 'inline client credentials'
-      : `profile "${profileName}"`
+      : `profile "${flags.profile ?? profileName}"`
     this.log(`Logged out from ${sessionDescription}. Run "xero login" to re-authenticate.`)
   }
 }

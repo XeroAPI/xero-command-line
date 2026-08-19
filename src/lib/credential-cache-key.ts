@@ -11,9 +11,20 @@ export interface CredentialSelector {
 export const LEGACY_INLINE_CACHE_KEY = '_inline'
 
 const INLINE_CACHE_KEY_PREFIX = '_inline:'
+const OVERRIDE_CACHE_KEY_PREFIX = '_override:'
 
 export function getInlineCredentialCacheKey(clientId: string): string {
   return `${INLINE_CACHE_KEY_PREFIX}${clientId}`
+}
+
+/**
+ * A client ID supplied alongside a profile overrides the profile's own client
+ * ID, so the session belongs to a different OAuth client and must not share the
+ * profile's cache entry. The client ID comes first because it cannot contain a
+ * colon, which keeps the key unambiguous for any profile name.
+ */
+export function getOverriddenProfileCacheKey(profile: string, clientId: string): string {
+  return `${OVERRIDE_CACHE_KEY_PREFIX}${clientId}:${profile}`
 }
 
 /**
@@ -22,8 +33,11 @@ export function getInlineCredentialCacheKey(clientId: string): string {
  * this function returns undefined.
  */
 export function resolveCredentialCacheKey(flags: CredentialSelector): string | undefined {
-  if (flags.profile) return flags.profile
-  if (flags['client-id']) return getInlineCredentialCacheKey(flags['client-id'])
+  const clientId = flags['client-id']
+  if (flags.profile) {
+    return clientId ? getOverriddenProfileCacheKey(flags.profile, clientId) : flags.profile
+  }
+  if (clientId) return getInlineCredentialCacheKey(clientId)
   return undefined
 }
 
@@ -32,18 +46,16 @@ export function isInlineCredentialSelector(flags: CredentialSelector): boolean {
 }
 
 /**
- * A logout of an inline session also removes the ambiguous legacy key. A
- * previous `_inline` token has no client ID recorded with it, so it must not
- * be reused by a client-ID-scoped session.
+ * Every logout also removes the ambiguous legacy key. A previous `_inline`
+ * token has no client ID recorded with it, so it can never be read again and
+ * would otherwise stay a live refresh token in tokens.json with no command
+ * able to remove it.
  */
 export function getCredentialCacheKeysToClear(
   flags: CredentialSelector,
   defaultProfile?: string,
 ): string[] {
   const cacheKey = resolveCredentialCacheKey(flags) ?? defaultProfile
-  if (!cacheKey) return []
 
-  return isInlineCredentialSelector(flags)
-    ? [cacheKey, LEGACY_INLINE_CACHE_KEY]
-    : [cacheKey]
+  return cacheKey ? [cacheKey, LEGACY_INLINE_CACHE_KEY] : [LEGACY_INLINE_CACHE_KEY]
 }

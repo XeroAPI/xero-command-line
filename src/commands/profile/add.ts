@@ -35,9 +35,9 @@ export default class ProfileAdd extends BaseCommand {
       validate: (v) => v.length > 0 || 'Client ID is required',
     })
 
-    if (replacingProfile) {
-      clearCachedToken(name)
-    }
+    // Purge unconditionally: a token entry can outlive the profile it was
+    // created for, so a reused name must never inherit an orphaned session.
+    clearCachedToken(name)
 
     addProfile(name, clientId)
 

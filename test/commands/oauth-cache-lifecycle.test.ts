@@ -1,5 +1,9 @@
 import {beforeEach, describe, expect, it, vi} from 'vitest'
-import {getInlineCredentialCacheKey, LEGACY_INLINE_CACHE_KEY} from '../../src/lib/credential-cache-key.js'
+import {
+  getInlineCredentialCacheKey,
+  getOverriddenProfileCacheKey,
+  LEGACY_INLINE_CACHE_KEY,
+} from '../../src/lib/credential-cache-key.js'
 
 const mocks = vi.hoisted(() => ({
   addProfile: vi.fn(),
@@ -82,7 +86,7 @@ describe('OAuth cache lifecycle commands', () => {
     })
   })
 
-  it('keeps a named profile as the cache key when its client ID is overridden', () => {
+  it('scopes the cache key to the client ID that overrides a named profile', () => {
     const command = Object.create(BaseCommand.prototype) as {
       resolveCredentials: (flags: {profile?: string; 'client-id'?: string}) => {profileName: string; clientId: string}
       error: (message: string) => never
@@ -92,9 +96,12 @@ describe('OAuth cache lifecycle commands', () => {
     }
 
     expect(command.resolveCredentials({profile: 'acme', 'client-id': 'alternate-client'})).toEqual({
-      profileName: 'acme',
+      profileName: getOverriddenProfileCacheKey('acme', 'alternate-client'),
       clientId: 'alternate-client',
     })
+    expect(command.resolveCredentials({profile: 'acme', 'client-id': 'client-b'}).profileName).not.toBe(
+      command.resolveCredentials({profile: 'acme', 'client-id': 'client-a'}).profileName,
+    )
   })
 
   it('keeps default-profile resolution unchanged when no client ID is supplied', () => {
@@ -165,10 +172,35 @@ describe('OAuth cache lifecycle commands', () => {
 
     await command.run()
 
-    expect(mocks.clearCachedToken).toHaveBeenCalledTimes(1)
-    expect(mocks.clearCachedToken).toHaveBeenCalledWith('default-profile')
+    expect(mocks.clearCachedToken).toHaveBeenNthCalledWith(1, 'default-profile')
     expect(command.log).toHaveBeenCalledWith(
       'Logged out from profile "default-profile". Run "xero login" to re-authenticate.',
+    )
+  })
+
+  it('purges the orphaned legacy inline key on any logout', async () => {
+    mocks.getDefaultProfile.mockReturnValue('default-profile')
+
+    await createCommand(Logout, {flags: {}}).run()
+
+    expect(mocks.clearCachedToken).toHaveBeenCalledWith(LEGACY_INLINE_CACHE_KEY)
+  })
+
+  it('does not inherit an ambient client ID when logging out', () => {
+    expect(Logout.flags['client-id'].env).toBeUndefined()
+  })
+
+  it('names the profile rather than the cache key when a client ID overrides it', async () => {
+    const command = createCommand(Logout, {flags: {profile: 'acme', 'client-id': 'alternate-client'}})
+
+    await command.run()
+
+    expect(mocks.clearCachedToken).toHaveBeenNthCalledWith(
+      1,
+      getOverriddenProfileCacheKey('acme', 'alternate-client'),
+    )
+    expect(command.log).toHaveBeenCalledWith(
+      'Logged out from profile "acme". Run "xero login" to re-authenticate.',
     )
   })
 
@@ -182,6 +214,21 @@ describe('OAuth cache lifecycle commands', () => {
     expect(mocks.removeProfile).toHaveBeenCalledWith('acme')
     expect(mocks.clearCachedToken.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.removeProfile.mock.invocationCallOrder[0],
+    )
+  })
+
+  it('clears an orphaned token entry when adding a profile that does not exist', async () => {
+    mocks.profileExists.mockReturnValue(false)
+    const command = createCommand(ProfileAdd, {
+      args: {name: 'acme'},
+      flags: {'client-id': 'new-client'},
+    })
+
+    await command.run()
+
+    expect(mocks.clearCachedToken).toHaveBeenCalledWith('acme')
+    expect(mocks.clearCachedToken.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.addProfile.mock.invocationCallOrder[0],
     )
   })
 
