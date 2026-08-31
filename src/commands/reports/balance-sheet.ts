@@ -33,8 +33,8 @@ export default class ReportsBalanceSheet extends BaseCommand {
         flags.timeframe as 'MONTH' | 'QUARTER' | 'YEAR' | undefined,
         flags['tracking-option-id-1'],
         flags['tracking-option-id-2'],
-        flags['payments-only'] || undefined,
         flags['standard-layout'] || undefined,
+        flags['payments-only'] || undefined,
       )
       return response.body.reports?.[0]
     })
