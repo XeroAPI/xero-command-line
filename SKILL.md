@@ -181,6 +181,8 @@ xero invoices list
 xero invoices list --contact-id <ID>
 xero invoices list --invoice-number INV-0001
 xero invoices list --page 2
+xero invoices pdf --invoice-id <ID> --output invoice.pdf
+xero invoices online-url --invoice-id <ID>
 
 # Single line item inline
 xero invoices create --contact-id <ID> --type ACCREC \
@@ -196,6 +198,8 @@ xero invoices update --file invoice-update.json
 ```
 
 Invoice types: `ACCREC` (sales/receivable), `ACCPAY` (purchase/payable).
+
+`invoices pdf` downloads the rendered invoice from Xero. It requires an explicit `--output <path>`; use `--output -` only when redirecting or piping binary stdout. `invoices online-url` returns the customer-facing online invoice URL for a non-draft `ACCREC` sales invoice from Xero's dedicated endpoint, not the unrelated source-document `url` field in invoice list results.
 
 Example invoice.json:
 ```json
