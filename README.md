@@ -76,6 +76,8 @@ In `auto` mode without file backup, if the keychain is completely unavailable at
 
 On Linux, WSL, or SSH, if login works once and later commands fail with an encryption-key error, the secret service was likely unavailable in that shell. The CLI does **not** delete `tokens.json` on decrypt errors.
 
+**Cache integrity.** Writes to `tokens.json` are atomic (written to a temp file, then renamed into place) and serialised across processes with a short-lived `tokens.json.lock` directory, so parallel commands, scripts, and background token refreshes cannot overwrite each other's profiles. Before every write the previous version is copied to `tokens.json.bak` (mode `0600`). If the CLI reports that the token cache is **corrupted**, that is not token expiry: the file exists but could not be parsed. Restore `tokens.json.bak` over `tokens.json`, or move `tokens.json` aside and run `xero login` for each profile. The CLI never replaces a corrupt cache on its own.
+
 **WSL / headless Linux (recommended: fix the keychain):**
 
 ```bash

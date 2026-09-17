@@ -27,7 +27,7 @@ export default class Logout extends BaseCommand {
       this.error('No profile configured. Nothing to log out from.')
     }
 
-    clearCachedToken(profileName)
+    await clearCachedToken(profileName)
     this.log(`Logged out from profile "${profileName}". Run "xero login" to re-authenticate.`)
   }
 }

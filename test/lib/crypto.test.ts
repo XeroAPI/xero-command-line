@@ -107,6 +107,20 @@ describe('crypto key storage', () => {
     expect(hasEncryptedTokens()).toBe(true)
   })
 
+  it('treats a corrupt token cache as existing tokens rather than minting a new key', async () => {
+    writeFileSync(TOKEN_PATH, '{"regan": {"accessToken": "x", ', {mode: 0o600})
+    expect(hasEncryptedTokens()).toBe(true)
+    const {Entry} = await import('@napi-rs/keyring')
+    Entry.store = null
+    await expect(getOrCreateKey()).rejects.toBeInstanceOf(EncryptionKeyError)
+    expect(Entry.store).toBeNull()
+  })
+
+  it('treats an empty token cache file as no tokens', () => {
+    writeFileSync(TOKEN_PATH, '', {mode: 0o600})
+    expect(hasEncryptedTokens()).toBe(false)
+  })
+
   it('derives a stable key from XERO_TOKEN_PASSPHRASE', async () => {
     process.env[PASSPHRASE_ENV] = 'test-passphrase'
     const a = await getOrCreateKey()

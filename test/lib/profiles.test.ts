@@ -1,5 +1,5 @@
 import {describe, it, expect, beforeEach, afterEach, vi} from 'vitest'
-import {existsSync, mkdirSync, rmSync, readFileSync} from 'node:fs'
+import {existsSync, mkdirSync, rmSync, readFileSync, readdirSync} from 'node:fs'
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 
@@ -36,6 +36,14 @@ describe('profiles', () => {
       const config = JSON.parse(readFileSync(configPath, 'utf-8'))
       expect(config.profiles['test-profile']).toBeDefined()
       expect(config.profiles['test-profile'].clientId).toBe('client-id-123')
+    })
+
+    it('writes atomically and leaves no temp files behind', () => {
+      addProfile('one', 'id-1')
+      addProfile('two', 'id-2')
+      const dir = join(TEST_DIR, '.config', 'xero-command-line')
+      expect(readdirSync(dir).filter(f => f.endsWith('.tmp'))).toEqual([])
+      expect(readdirSync(dir)).toContain('config.json')
     })
 
     it('sets first profile as default', () => {
