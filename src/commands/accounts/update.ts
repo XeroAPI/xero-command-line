@@ -21,6 +21,8 @@ export default class AccountsUpdate extends BaseCommand {
     status: Flags.string({description: 'Account status (ACTIVE or ARCHIVED)'}),
     'tax-type': Flags.string({description: 'Tax type'}),
     'enable-payments-to-account': Flags.boolean({description: 'Enable payments to account', allowNo: true}),
+    'show-in-expense-claims': Flags.boolean({description: 'Show in expense claims', allowNo: true}),
+    'add-to-watchlist': Flags.boolean({description: 'Show on the Xero dashboard watchlist', allowNo: true}),
   }
 
   async run(): Promise<void> {
@@ -55,6 +57,8 @@ export default class AccountsUpdate extends BaseCommand {
         status: flags.status,
         taxType: flags['tax-type'],
         enablePaymentsToAccount: flags['enable-payments-to-account'],
+        showInExpenseClaims: flags['show-in-expense-claims'],
+        addToWatchlist: flags['add-to-watchlist'],
       }
 
       const parsed = accountUpdateSchema.safeParse(data)
@@ -71,6 +75,8 @@ export default class AccountsUpdate extends BaseCommand {
           status: parsed.data.status as Account['status'],
           taxType: parsed.data.taxType,
           enablePaymentsToAccount: parsed.data.enablePaymentsToAccount,
+          showInExpenseClaims: parsed.data.showInExpenseClaims,
+          addToWatchlist: parsed.data.addToWatchlist,
         }
         const response = await xero.accountingApi.updateAccount(tenantId, parsed.data.accountId, {accounts: [account]})
         return response.body.accounts?.[0]

@@ -28,6 +28,8 @@ export default class AccountsList extends BaseCommand {
         {key: 'code', header: 'Code'},
         {key: 'name', header: 'Name'},
         {key: 'type', header: 'Type'},
+        {key: 'taxType', header: 'Tax Type'},
+        {key: 'description', header: 'Description'},
         {key: 'status', header: 'Status', format: (v) => formatStatus(String(v ?? ''))},
         {key: '_class', header: 'Class'},
       ],
