@@ -57,6 +57,24 @@ This opens your browser for Xero's OAuth consent flow. After you authorize, the 
 
 Tokens are encrypted (AES-256-GCM) and cached at `~/.config/xero-command-line/tokens.json`. Tokens refresh automatically when expired.
 
+### Remote or headless login
+
+If the CLI is running on a remote machine that cannot open a browser, use `--no-open` to print the authorization URL instead:
+
+```bash
+xero login --no-open
+```
+
+The CLI still listens for the OAuth callback on `http://localhost:8742/callback`. Forward that port from your local machine when connecting over SSH:
+
+```bash
+ssh -L 8742:127.0.0.1:8742 user@remote-host
+```
+
+In that SSH session, run `xero login --no-open`, then open the printed URL in your local browser. The browser's callback travels through the SSH tunnel to the CLI. Keep the SSH session and login command running until authentication completes.
+
+This option avoids launching a browser on the remote machine; it does not provide unattended or browser-free authentication.
+
 ### Token storage
 
 The CLI encrypts OAuth tokens at rest in `~/.config/xero-command-line/tokens.json`. Where the **encryption key** is stored, from most to least secure:

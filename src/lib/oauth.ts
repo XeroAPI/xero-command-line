@@ -47,6 +47,11 @@ interface XeroTenant {
   tenantName: string
 }
 
+export interface PerformLoginOptions {
+  openBrowser?: boolean
+  onAuthorizationUrl?: (url: string) => void
+}
+
 function generateCodeVerifier(): string {
   return randomBytes(32).toString('base64url')
 }
@@ -169,9 +174,8 @@ async function fetchTenants(accessToken: string): Promise<XeroTenant[]> {
 export async function performLogin(
   clientId: string,
   scopes?: string,
+  options: PerformLoginOptions = {},
 ): Promise<{tokenSet: TokenSet; tenantId: string; tenantName: string}> {
-  const {default: open} = await import('open')
-
   const codeVerifier = generateCodeVerifier()
   const codeChallenge = generateCodeChallenge(codeVerifier)
   const state = randomBytes(16).toString('hex')
@@ -180,7 +184,12 @@ export async function performLogin(
 
   // Start the callback server before opening the browser
   const codePromise = waitForCallback(state)
-  await open(authUrl)
+  if (options.openBrowser === false) {
+    options.onAuthorizationUrl?.(authUrl)
+  } else {
+    const {default: open} = await import('open')
+    await open(authUrl)
+  }
 
   const code = await codePromise
   const tokenSet = await exchangeCodeForTokens(clientId, code, codeVerifier)
