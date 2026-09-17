@@ -6,7 +6,7 @@
   "author": "Regan Ashworth",
   "repository": {
     "type": "git",
-    "url": "https://github.com/XeroAPI/xero-command-line.git"
+    "url": "git+https://github.com/XeroAPI/xero-command-line.git"
   },
   "homepage": "https://github.com/XeroAPI/xero-command-line#readme",
   "bugs": {
@@ -22,7 +22,7 @@
   ],
   "type": "module",
   "bin": {
-    "xero": "./bin/run.js"
+    "xero": "bin/run.js"
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
