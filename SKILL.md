@@ -46,6 +46,8 @@ Warn if `XERO_PROFILE`, `XERO_CLIENT_ID`, `XERO_KEY_STORAGE`, `XERO_KEYRING_FILE
 
 The CLI does **not** wipe `tokens.json` when decryption fails; instruct re-login only after the user confirms.
 
+If a command fails with an error saying the token cache is **corrupted** (`TokenCacheError`), that is not token expiry. Stop and tell the user: a backup exists at `~/.config/xero-command-line/tokens.json.bak` and can be restored over `tokens.json`. Do not run `xero login` or delete files unless the user asks.
+
 ## IMPORTANT: Profile and identity verification
 
 Before executing **any** commands (including read-only operations), you **must** verify which Xero organisation is active:

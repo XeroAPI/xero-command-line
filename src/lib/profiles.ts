@@ -1,6 +1,7 @@
-import {existsSync, mkdirSync, readFileSync, writeFileSync} from 'node:fs'
+import {existsSync, mkdirSync, readFileSync} from 'node:fs'
 import {homedir} from 'node:os'
 import {join} from 'node:path'
+import {writeFileAtomic} from './atomic-file.js'
 
 export interface Profile {
   name: string
@@ -31,7 +32,7 @@ function readConfig(): ConfigFile {
 
 function writeConfig(config: ConfigFile): void {
   ensureConfigDir()
-  writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2))
+  writeFileAtomic(CONFIG_PATH, JSON.stringify(config, null, 2), 0o600)
 }
 
 export function addProfile(name: string, clientId: string): void {

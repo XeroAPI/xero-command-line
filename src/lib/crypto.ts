@@ -70,11 +70,21 @@ export function isFileBackupEnabled(): boolean {
 export function hasEncryptedTokens(): boolean {
   const tokenPath = join(CONFIG_DIR, 'tokens.json')
   if (!existsSync(tokenPath)) return false
+  let raw: string
   try {
-    const cache = JSON.parse(readFileSync(tokenPath, 'utf-8')) as Record<string, unknown>
+    raw = readFileSync(tokenPath, 'utf-8')
+  } catch {
+    // Unreadable but present: assume tokens exist so we never mint a new key over the old one.
+    return true
+  }
+  if (raw.trim().length === 0) return false
+  try {
+    const cache = JSON.parse(raw) as Record<string, unknown>
     return Object.keys(cache).length > 0
   } catch {
-    return false
+    // Corrupt but non-empty: treat as "tokens exist". Generating a fresh key here would
+    // make the cache permanently undecryptable even after the file is repaired.
+    return true
   }
 }
 

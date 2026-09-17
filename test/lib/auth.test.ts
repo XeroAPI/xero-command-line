@@ -1,5 +1,5 @@
 import {describe, it, expect, beforeEach, afterEach, vi} from 'vitest'
-import {mkdirSync, rmSync} from 'node:fs'
+import {existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync} from 'node:fs'
 import {randomBytes} from 'node:crypto'
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
@@ -28,6 +28,10 @@ vi.mock('../../src/lib/crypto.js', () => ({
 }))
 
 const {getCachedTokenSet, cacheTokenSet, clearCachedToken} = await import('../../src/lib/auth.js')
+
+const CONFIG_DIR = join(TEST_DIR, '.config', 'xero-command-line')
+const TOKEN_PATH = join(CONFIG_DIR, 'tokens.json')
+const TOKEN_BACKUP_PATH = `${TOKEN_PATH}.bak`
 
 describe('auth token cache', () => {
   beforeEach(() => {
@@ -89,8 +93,44 @@ describe('auth token cache', () => {
       expect(await getCachedTokenSet('to-clear')).toBeNull()
     })
 
-    it('does not error when clearing non-existent profile', () => {
-      expect(() => clearCachedToken('nonexistent')).not.toThrow()
+    it('does not error when clearing non-existent profile', async () => {
+      await expect(clearCachedToken('nonexistent')).resolves.toBeUndefined()
+    })
+
+    it('leaves other profiles intact', async () => {
+      await cacheTokenSet('keep', {access_token: 'k', refresh_token: 'kr', expires_in: 1800}, 'tenant-1')
+      await cacheTokenSet('drop', {access_token: 'd', refresh_token: 'dr', expires_in: 1800}, 'tenant-2')
+      await clearCachedToken('drop')
+      expect(await getCachedTokenSet('drop')).toBeNull()
+      expect((await getCachedTokenSet('keep'))?.accessToken).toBe('k')
+    })
+  })
+
+  describe('token cache file integrity', () => {
+    it('writes the cache with mode 0600 and leaves no temp or lock files behind', async () => {
+      await cacheTokenSet('a', {access_token: 'ta', refresh_token: 'ra', expires_in: 1800}, 'tenant-a')
+      expect(statSync(TOKEN_PATH).mode & 0o777).toBe(0o600)
+      const leftovers = readdirSync(CONFIG_DIR).filter(f => f.endsWith('.tmp') || f.endsWith('.lock'))
+      expect(leftovers).toEqual([])
+    })
+
+    it('preserves existing profiles when adding another', async () => {
+      await cacheTokenSet('a', {access_token: 'ta', refresh_token: 'ra', expires_in: 1800}, 'tenant-a')
+      await cacheTokenSet('b', {access_token: 'tb', refresh_token: 'rb', expires_in: 1800}, 'tenant-b')
+      const cache = JSON.parse(readFileSync(TOKEN_PATH, 'utf-8')) as Record<string, unknown>
+      expect(Object.keys(cache).sort()).toEqual(['a', 'b'])
+      expect((await getCachedTokenSet('a'))?.accessToken).toBe('ta')
+    })
+
+    it('keeps a one-generation backup of the previous cache', async () => {
+      await cacheTokenSet('a', {access_token: 'ta', refresh_token: 'ra', expires_in: 1800}, 'tenant-a')
+      expect(existsSync(TOKEN_BACKUP_PATH)).toBe(false)
+
+      await cacheTokenSet('b', {access_token: 'tb', refresh_token: 'rb', expires_in: 1800}, 'tenant-b')
+      expect(existsSync(TOKEN_BACKUP_PATH)).toBe(true)
+      expect(statSync(TOKEN_BACKUP_PATH).mode & 0o777).toBe(0o600)
+      const backup = JSON.parse(readFileSync(TOKEN_BACKUP_PATH, 'utf-8')) as Record<string, unknown>
+      expect(Object.keys(backup)).toEqual(['a'])
     })
   })
 })
