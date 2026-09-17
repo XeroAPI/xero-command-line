@@ -32,6 +32,8 @@
   ],
   "scripts": {
     "build": "tsc -b",
+    "build:binary": "bun build --compile --minify bin/bun-run.ts --outfile xero",
+    "build:binary:linux": "bun build --compile --minify --target=bun-linux-x64 bin/bun-run.ts --outfile xero-linux",
     "dev": "node --loader ts-node/esm bin/dev.js",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -97,6 +99,27 @@
       },
       "org": {
         "description": "View organisation details"
+      },
+      "invoices:attachments": {
+        "description": "Manage invoice attachments"
+      },
+      "credit-notes:attachments": {
+        "description": "Manage credit note attachments"
+      },
+      "bank-transactions:attachments": {
+        "description": "Manage bank transaction attachments"
+      },
+      "quotes:attachments": {
+        "description": "Manage quote attachments"
+      },
+      "contacts:attachments": {
+        "description": "Manage contact attachments"
+      },
+      "accounts:attachments": {
+        "description": "Manage account attachments"
+      },
+      "manual-journals:attachments": {
+        "description": "Manage manual journal attachments"
       }
     },
     "plugins": [

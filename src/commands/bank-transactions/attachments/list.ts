@@ -1,0 +1,34 @@
+import {Flags} from '@oclif/core'
+import {BaseCommand} from '../../../base-command.js'
+import {listAttachments} from '../../../lib/attachments.js'
+
+export default class BankTransactionsAttachmentsList extends BaseCommand {
+  static override description = 'List attachments on a bank transaction'
+
+  static override examples = [
+    '<%= config.bin %> bank-transactions attachments list --bank-transaction-id abc-123',
+  ]
+
+  static override flags = {
+    ...BaseCommand.baseFlags,
+    'bank-transaction-id': Flags.string({description: 'Bank Transaction ID', required: true}),
+  }
+
+  private readonly columns = [
+    {key: 'attachmentID', header: 'ID'},
+    {key: 'fileName', header: 'File Name'},
+    {key: 'mimeType', header: 'Type'},
+    {key: 'contentLength', header: 'Size (bytes)'},
+    {key: 'url', header: 'URL'},
+  ]
+
+  async run(): Promise<void> {
+    const {flags} = await this.parse(BankTransactionsAttachmentsList)
+
+    const result = await this.xeroCall(flags, async (xero, tenantId) =>
+      listAttachments(xero, tenantId, 'bankTransaction', flags['bank-transaction-id']),
+    )
+
+    this.outputFormatted(result as unknown as Record<string, unknown>[], this.columns, flags)
+  }
+}

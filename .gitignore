@@ -22,3 +22,8 @@ Thumbs.db
 
 # Xero CLI config (tokens, credentials)
 .config/
+
+# Compiled binaries
+/xero
+/xero-linux
+/*.bun-build
